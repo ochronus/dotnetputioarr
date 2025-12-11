@@ -122,6 +122,10 @@ try
     app.UseSerilogRequestLogging(options =>
     {
         options.MessageTemplate = "{RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+        options.GetLevel = (httpContext, elapsed, ex) =>
+            ex != null || httpContext.Response.StatusCode >= 400
+                ? Serilog.Events.LogEventLevel.Information
+                : Serilog.Events.LogEventLevel.Debug;
     });
 
     app.MapControllers();
