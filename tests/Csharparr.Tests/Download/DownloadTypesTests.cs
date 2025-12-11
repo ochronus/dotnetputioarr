@@ -280,20 +280,21 @@ public class DownloadTypesTests
         var message = new DownloadTargetMessage { Target = target };
 
         message.Target.Should().BeSameAs(target);
-        (message.CompletionSource is not null).Should().BeTrue();
+        Assert.NotNull(message.CompletionSource);
         message.CompletionSource.Task.IsCompleted.Should().BeFalse();
     }
 
     [Fact]
-    public void DownloadTargetMessage_CompletionSource_ShouldComplete()
+    public async Task DownloadTargetMessage_CompletionSource_ShouldComplete()
     {
         var target = new DownloadTarget("/test");
         var message = new DownloadTargetMessage { Target = target };
 
-        message.CompletionSource.SetResult(DownloadStatus.Success);
+        message.CompletionSource!.SetResult(DownloadStatus.Success);
 
         message.CompletionSource.Task.IsCompleted.Should().BeTrue();
-        message.CompletionSource.Task.Result.Should().Be(DownloadStatus.Success);
+        var result = await message.CompletionSource.Task;
+        result.Should().Be(DownloadStatus.Success);
     }
 
     [Theory]
