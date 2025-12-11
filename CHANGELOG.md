@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-12-11
+
+### Changed
+
+- `ArrClient.CheckImportedMultiServiceAsync` now logs warnings when service checks fail instead of silently swallowing exceptions
+- Background tasks for import and seeding watches are now tracked and properly handle errors
+- Added error handling wrappers for `WatchForImportAsync` and `WatchSeedingAsync` that:
+  - Log cancellation at Debug level (expected during shutdown)
+  - Log unexpected errors at Error level
+  - Clean up completed tasks to prevent unbounded memory growth
+
+### Added
+
+- New tests for `ArrClient` including logging verification
+- New tests for `DownloadManager` background task tracking behavior
+
 ## [0.1.1] - 2025-12-11
 
 ### Changed
@@ -38,5 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD with GitHub Actions
 - Dependabot configured for automated dependency updates
 
+[0.1.2]: https://github.com/ochronus/csharparr/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ochronus/csharparr/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ochronus/csharparr/releases/tag/v0.1.0

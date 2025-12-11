@@ -7,7 +7,7 @@
     <LangVersion>14</LangVersion>
     <RootNamespace>Csharparr</RootNamespace>
     <AssemblyName>csharparr</AssemblyName>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Authors>ochronus</Authors>
     <Description>put.io to sonarr/radarr/whisparr proxy - C# port</Description>
     <RepositoryUrl>https://github.com/ochronus/csharparr</RepositoryUrl>

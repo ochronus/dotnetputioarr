@@ -20,6 +20,8 @@ public sealed class DownloadManager : BackgroundService
     private readonly Channel<DownloadTargetMessage> _downloadChannel;
     private readonly HashSet<ulong> _seenTransfers = [];
     private readonly Lock _seenLock = new();
+    private readonly List<Task> _backgroundTasks = [];
+    private readonly Lock _backgroundTasksLock = new();
 
     public DownloadManager(
         AppConfig config,
@@ -82,11 +84,11 @@ public sealed class DownloadManager : BackgroundService
                         break;
 
                     case TransferMessageType.Downloaded:
-                        _ = WatchForImportAsync(message.Transfer, cancellationToken);
+                        TrackBackgroundTask(WatchForImportWithErrorHandlingAsync(message.Transfer, cancellationToken));
                         break;
 
                     case TransferMessageType.Imported:
-                        _ = WatchSeedingAsync(message.Transfer, cancellationToken);
+                        TrackBackgroundTask(WatchSeedingWithErrorHandlingAsync(message.Transfer, cancellationToken));
                         break;
                 }
             }
@@ -94,6 +96,51 @@ public sealed class DownloadManager : BackgroundService
             {
                 _logger.LogError(ex, "Error processing transfer message for {Transfer}", message.Transfer);
             }
+        }
+    }
+
+    private async Task WatchForImportWithErrorHandlingAsync(Transfer transfer, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await WatchForImportAsync(transfer, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Expected during shutdown, don't log as error
+            _logger.LogDebug("{Transfer}: import watch cancelled", transfer);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Transfer}: import watch failed unexpectedly", transfer);
+        }
+    }
+
+    private async Task WatchSeedingWithErrorHandlingAsync(Transfer transfer, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await WatchSeedingAsync(transfer, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Expected during shutdown, don't log as error
+            _logger.LogDebug("{Transfer}: seeding watch cancelled", transfer);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Transfer}: seeding watch failed unexpectedly", transfer);
+        }
+    }
+
+    private void TrackBackgroundTask(Task task)
+    {
+        lock (_backgroundTasksLock)
+        {
+            // Clean up completed tasks to prevent unbounded growth
+            _backgroundTasks.RemoveAll(t => t.IsCompleted);
+            _backgroundTasks.Add(task);
+            _logger.LogDebug("Background tasks tracked: {Count}", _backgroundTasks.Count);
         }
     }
 
@@ -365,7 +412,7 @@ public sealed class DownloadManager : BackgroundService
         foreach (var target in fileTargets)
         {
             var (imported, serviceName) = await ArrClient.CheckImportedMultiServiceAsync(
-                target.To, services, cancellationToken);
+                target.To, services, _logger, cancellationToken);
 
             if (imported && serviceName is not null)
             {

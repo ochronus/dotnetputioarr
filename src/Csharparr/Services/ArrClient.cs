@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Microsoft.Extensions.Logging;
 
 namespace Csharparr.Services;
 
@@ -72,6 +73,7 @@ public sealed class ArrClient : IDisposable
     public static async Task<(bool Imported, string? ServiceName)> CheckImportedMultiServiceAsync(
         string targetPath,
         IEnumerable<Configuration.ArrServiceInfo> services,
+        ILogger? logger = null,
         CancellationToken cancellationToken = default)
     {
         foreach (var service in services)
@@ -85,9 +87,10 @@ public sealed class ArrClient : IDisposable
                     return (true, service.Name);
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Log the error but continue checking other services
+                logger?.LogWarning(ex, "Failed to check import status from {ServiceName} at {ServiceUrl}",
+                    service.Name, service.Url);
                 continue;
             }
         }
