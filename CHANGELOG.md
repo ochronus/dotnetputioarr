@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2025-12-11
+
+### Added
+
+- HTTP resilience with Polly 8.x for automatic retries on transient failures
+- Retry policies for Put.io API, Arr services, and file downloads with exponential backoff
+- Circuit breaker to prevent hammering failing services
+- Error response body included in exception messages for better debugging
+- Debug-level logging for all Put.io API operations
+- New tests for resilience behavior and retry logic
+
+### Changed
+
+- Refactored `PutioClient` to use `IHttpClientFactory` with named clients
+- Refactored `ArrClient` to use `IHttpClientFactory` with named clients
+- Downloads now use a dedicated HTTP client with appropriate timeout settings
+- Polly logging set to Warning level to reduce noise
+
+### Technical Details
+
+- Retry up to 3 times with exponential backoff (1s, 2s, 4s) plus jitter
+- Circuit breaker opens after 50% failure rate over 30 seconds
+- Retries on: network errors, timeouts, 408, 429, 500, 502, 503, 504
+
 ## [0.1.2] - 2025-12-11
 
 ### Changed
@@ -54,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD with GitHub Actions
 - Dependabot configured for automated dependency updates
 
+[0.1.3]: https://github.com/ochronus/csharparr/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ochronus/csharparr/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ochronus/csharparr/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ochronus/csharparr/releases/tag/v0.1.0

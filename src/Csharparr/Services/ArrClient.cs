@@ -8,7 +8,7 @@ namespace Csharparr.Services;
 /// </summary>
 public sealed class ArrClient : IDisposable
 {
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+    public const string HttpClientName = "ArrClient";
 
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;
@@ -19,8 +19,8 @@ public sealed class ArrClient : IDisposable
     public ArrClient(string baseUrl, string apiKey, HttpClient? httpClient)
     {
         _baseUrl = baseUrl.TrimEnd('/');
-        _httpClient = httpClient ?? new HttpClient { Timeout = DefaultTimeout };
-        _httpClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+        _httpClient = httpClient ?? new HttpClient();
+        _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", apiKey);
     }
 
     /// <summary>
@@ -38,7 +38,8 @@ public sealed class ArrClient : IDisposable
 
             if (!response.IsSuccessStatusCode)
             {
-                throw new ArrClientException($"Error checking history from {_baseUrl}: {response.StatusCode}");
+                var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
+                throw new ArrClientException($"Error checking history from {_baseUrl}: {response.StatusCode}{errorBody}");
             }
 
             var historyResponse = await response.Content.ReadFromJsonAsync<HistoryResponse>(cancellationToken: cancellationToken)
@@ -96,6 +97,31 @@ public sealed class ArrClient : IDisposable
         }
 
         return (false, null);
+    }
+
+    /// <summary>
+    /// Attempts to read the error response body for better error messages
+    /// </summary>
+    private static async Task<string> TryReadErrorBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                // Truncate very long responses
+                if (body.Length > 500)
+                {
+                    body = body[..500] + "...";
+                }
+                return $" - {body}";
+            }
+        }
+        catch
+        {
+            // Ignore errors reading the body
+        }
+        return string.Empty;
     }
 
     public void Dispose()

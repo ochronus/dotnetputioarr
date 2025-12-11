@@ -266,7 +266,7 @@ public sealed class DownloadManager : BackgroundService
 
         try
         {
-            using var httpClient = _httpClientFactory.CreateClient();
+            using var httpClient = _httpClientFactory.CreateClient("Downloads");
             using var response = await httpClient.GetAsync(target.From, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
 

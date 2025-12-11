@@ -1,9 +1,12 @@
 using System.CommandLine;
 using System.CommandLine.Parsing;
+using System.Net;
 using Csharparr.Commands;
 using Csharparr.Configuration;
 using Csharparr.Download;
 using Csharparr.Services;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
 using Serilog;
 using Serilog.Events;
 
@@ -68,6 +71,7 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Is(logLevel)
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+    .MinimumLevel.Override("Polly", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .WriteTo.Console(
         outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
@@ -99,8 +103,92 @@ try
 
     // Add services
     builder.Services.AddSingleton(config);
-    builder.Services.AddSingleton<PutioClient>(sp => new PutioClient(config.Putio.ApiKey));
-    builder.Services.AddHttpClient();
+
+    // Configure HttpClient for PutioClient with resilience policies
+    builder.Services.AddHttpClient(PutioClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddResilienceHandler("putio-resilience", builder =>
+        {
+            // Retry policy: retry on transient errors with exponential backoff
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromSeconds(1),
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
+            });
+
+            // Circuit breaker: prevent hammering a failing service
+            builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+            {
+                SamplingDuration = TimeSpan.FromSeconds(30),
+                FailureRatio = 0.5,
+                MinimumThroughput = 5,
+                BreakDuration = TimeSpan.FromSeconds(30),
+                ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
+            });
+
+            // Timeout per attempt
+            builder.AddTimeout(TimeSpan.FromSeconds(10));
+        });
+
+    // Configure HttpClient for ArrClient with resilience policies
+    builder.Services.AddHttpClient(ArrClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(60);
+        })
+        .AddResilienceHandler("arr-resilience", builder =>
+        {
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromSeconds(2),
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
+            });
+
+            builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+            {
+                SamplingDuration = TimeSpan.FromSeconds(60),
+                FailureRatio = 0.5,
+                MinimumThroughput = 3,
+                BreakDuration = TimeSpan.FromSeconds(30),
+                ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
+            });
+
+            builder.AddTimeout(TimeSpan.FromSeconds(30));
+        });
+
+    // Default HttpClient for downloads (longer timeout, simpler retry)
+    builder.Services.AddHttpClient("Downloads", client =>
+        {
+            client.Timeout = TimeSpan.FromMinutes(30);
+        })
+        .AddResilienceHandler("download-resilience", builder =>
+        {
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 2,
+                Delay = TimeSpan.FromSeconds(5),
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
+            });
+        });
+
+    // Register PutioClient with HttpClientFactory
+    builder.Services.AddSingleton<PutioClient>(sp =>
+    {
+        var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+        var httpClient = httpClientFactory.CreateClient(PutioClient.HttpClientName);
+        var logger = sp.GetRequiredService<ILogger<PutioClient>>();
+        return new PutioClient(config.Putio.ApiKey, httpClient, logger);
+    });
+
     builder.Services.AddHostedService<DownloadManager>();
 
     // Add controllers
@@ -141,4 +229,32 @@ catch (Exception ex)
 finally
 {
     await Log.CloseAndFlushAsync();
+}
+
+/// <summary>
+/// Determines if a request should be retried based on the outcome
+/// </summary>
+static bool ShouldRetry(Outcome<HttpResponseMessage> outcome)
+{
+    // Retry on exceptions (network errors, timeouts, etc.)
+    if (outcome.Exception is not null)
+    {
+        return outcome.Exception is HttpRequestException
+            or TimeoutException
+            or TaskCanceledException;
+    }
+
+    // Retry on transient HTTP status codes
+    if (outcome.Result is not null)
+    {
+        var statusCode = outcome.Result.StatusCode;
+        return statusCode is HttpStatusCode.RequestTimeout
+            or HttpStatusCode.TooManyRequests
+            or HttpStatusCode.InternalServerError
+            or HttpStatusCode.BadGateway
+            or HttpStatusCode.ServiceUnavailable
+            or HttpStatusCode.GatewayTimeout;
+    }
+
+    return false;
 }

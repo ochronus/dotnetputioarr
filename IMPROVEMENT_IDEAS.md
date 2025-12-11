@@ -38,15 +38,17 @@ Tasks for `WatchForImportAsync` and `WatchSeedingAsync` are started with `_ =` a
 
 ---
 
-### 3. No Retry Logic for HTTP Calls
+### 3. ~~No Retry Logic for HTTP Calls~~ ✅ DONE (v0.1.3)
 
 All `PutioClient` and `ArrClient` HTTP calls fail immediately on any error. Network glitches, rate limits, or temporary outages cause immediate failures with no recovery.
 
 **Fix:** Add [Polly](https://github.com/App-vNext/Polly) or similar retry policies with exponential backoff.
 
+**Status:** Fixed in v0.1.3 - Added Polly 8.x with `Microsoft.Extensions.Http.Resilience`. Configured retry policies (3 attempts, exponential backoff with jitter) and circuit breakers for Put.io API, Arr services, and downloads.
+
 ---
 
-### 4. Insufficient Error Details in Exceptions
+### 4. ~~Insufficient Error Details in Exceptions~~ ✅ DONE (v0.1.3)
 
 **Location:** `Services/PutioClient.cs`
 
@@ -57,6 +59,8 @@ throw new PutioException($"Error getting put.io account info: {response.StatusCo
 ```
 
 **Fix:** Read and include the response body in exception messages when available.
+
+**Status:** Fixed in v0.1.3 - Added `TryReadErrorBodyAsync` helper to both `PutioClient` and `ArrClient` that reads and includes response body (truncated to 500 chars) in exception messages.
 
 ---
 
@@ -220,9 +224,9 @@ Current state:
 
 1. ~~Fix logging in `ArrClient` (#1) - quick win~~ ✅ DONE
 2. ~~Fix fire-and-forget task tracking (#2)~~ ✅ DONE
-3. Add retry logic with Polly (#3) - high impact
-4. Add health check endpoint (#9)
-5. Fix version handling (#7)
-6. Refactor HttpClient usage (#5, #6)
-7. Add error response bodies (#4)
+3. ~~Add retry logic with Polly (#3) - high impact~~ ✅ DONE
+4. ~~Add error response bodies (#4)~~ ✅ DONE
+5. Add health check endpoint (#9)
+6. Fix version handling (#7)
+7. Refactor HttpClient usage (#5, #6) - partially done via Polly integration
 8. Everything else based on need
