@@ -1,5 +1,5 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and project files
@@ -23,7 +23,7 @@ RUN dotnet publish src/Csharparr/Csharparr.csproj \
     /p:Version=${VERSION}
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 
 # Install ca-certificates and tzdata for HTTPS and timezone support
 RUN apk add --no-cache ca-certificates tzdata
