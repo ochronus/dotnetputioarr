@@ -95,8 +95,8 @@ public class AppConfigTests
             Username = "user",
             Password = "pass",
             DownloadDirectory = "/downloads",
-            Putio = new PutioConfig { ApiKey = "key" },
-            Sonarr = new ArrConfig { Url = "http://localhost", ApiKey = "key" }
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://localhost", "key")
         };
 
         var action = () => config.Validate();
@@ -111,8 +111,8 @@ public class AppConfigTests
         {
             Password = "pass",
             DownloadDirectory = "/downloads",
-            Putio = new PutioConfig { ApiKey = "key" },
-            Sonarr = new ArrConfig { Url = "http://localhost", ApiKey = "key" }
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://localhost", "key")
         };
 
         var action = () => config.Validate();
@@ -128,8 +128,8 @@ public class AppConfigTests
         {
             Username = "user",
             DownloadDirectory = "/downloads",
-            Putio = new PutioConfig { ApiKey = "key" },
-            Sonarr = new ArrConfig { Url = "http://localhost", ApiKey = "key" }
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://localhost", "key")
         };
 
         var action = () => config.Validate();
@@ -145,8 +145,8 @@ public class AppConfigTests
         {
             Username = "user",
             Password = "pass",
-            Putio = new PutioConfig { ApiKey = "key" },
-            Sonarr = new ArrConfig { Url = "http://localhost", ApiKey = "key" }
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://localhost", "key")
         };
 
         var action = () => config.Validate();
@@ -163,7 +163,7 @@ public class AppConfigTests
             Username = "user",
             Password = "pass",
             DownloadDirectory = "/downloads",
-            Sonarr = new ArrConfig { Url = "http://localhost", ApiKey = "key" }
+            Sonarr = new ArrConfig("http://localhost", "key")
         };
 
         var action = () => config.Validate();
@@ -180,7 +180,7 @@ public class AppConfigTests
             Username = "user",
             Password = "pass",
             DownloadDirectory = "/downloads",
-            Putio = new PutioConfig { ApiKey = "key" }
+            Putio = new PutioConfig("key")
         };
 
         var action = () => config.Validate();
@@ -204,7 +204,7 @@ public class AppConfigTests
     {
         var config = new AppConfig
         {
-            Sonarr = new ArrConfig { Url = "http://sonarr", ApiKey = "key1" }
+            Sonarr = new ArrConfig("http://sonarr", "key1")
         };
 
         var services = config.GetArrServices().ToList();
@@ -220,9 +220,9 @@ public class AppConfigTests
     {
         var config = new AppConfig
         {
-            Sonarr = new ArrConfig { Url = "http://sonarr:8989", ApiKey = "sonarr-key" },
-            Radarr = new ArrConfig { Url = "http://radarr:7878", ApiKey = "radarr-key" },
-            Whisparr = new ArrConfig { Url = "http://whisparr:6969", ApiKey = "whisparr-key" }
+            Sonarr = new ArrConfig("http://sonarr:8989", "sonarr-key"),
+            Radarr = new ArrConfig("http://radarr:7878", "radarr-key"),
+            Whisparr = new ArrConfig("http://whisparr:6969", "whisparr-key")
         };
 
         var services = config.GetArrServices().ToList();

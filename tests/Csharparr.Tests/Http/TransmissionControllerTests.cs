@@ -20,8 +20,8 @@ public class TransmissionControllerTests
         Username = "testuser",
         Password = "testpass",
         DownloadDirectory = "/downloads",
-        Putio = new PutioConfig { ApiKey = "test-api-key" },
-        Sonarr = new ArrConfig { Url = "http://sonarr", ApiKey = "key" }
+        Putio = new PutioConfig("test-api-key"),
+        Sonarr = new ArrConfig("http://sonarr", "key")
     };
 
     private static string CreateBasicAuthHeader(string username, string password)
@@ -133,11 +133,7 @@ public class TransmissionControllerTests
     [Fact]
     public void TransmissionResponse_Serialization_Success()
     {
-        var response = new TransmissionResponse
-        {
-            Result = "success",
-            Arguments = null
-        };
+        var response = new TransmissionResponse("success");
 
         var json = JsonSerializer.Serialize(response);
 
@@ -147,11 +143,7 @@ public class TransmissionControllerTests
     [Fact]
     public void TransmissionResponse_Serialization_WithArguments()
     {
-        var response = new TransmissionResponse
-        {
-            Result = "success",
-            Arguments = new { test = "value" }
-        };
+        var response = new TransmissionResponse("success", new { test = "value" });
 
         var json = JsonSerializer.Serialize(response);
 
@@ -232,9 +224,7 @@ public class TransmissionControllerTests
     [Fact]
     public void TorrentGetResponse_Serialization()
     {
-        var response = new TorrentGetResponse
-        {
-            Torrents =
+        var response = new TorrentGetResponse(
             [
                 new TransmissionTorrent
                 {
@@ -244,7 +234,7 @@ public class TransmissionControllerTests
                     Status = TorrentStatus.Downloading
                 }
             ]
-        };
+        );
 
         var json = JsonSerializer.Serialize(response);
 
@@ -375,8 +365,8 @@ public class TransmissionControllerTests
             Username = "test",
             Password = "test",
             DownloadDirectory = "/downloads",
-            Putio = new PutioConfig { ApiKey = "key" },
-            Sonarr = new ArrConfig { Url = "http://sonarr", ApiKey = "key" }
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://sonarr", "key")
         };
 
         var action = () => config.Validate();
@@ -409,7 +399,7 @@ public class TransmissionControllerTests
     [Fact]
     public void TorrentRemoveArguments_DefaultDeleteLocalData_ShouldBeFalse()
     {
-        var args = new TorrentRemoveArguments();
+        var args = new TorrentRemoveArguments([]);
 
         args.DeleteLocalData.Should().BeFalse();
     }
@@ -417,7 +407,7 @@ public class TransmissionControllerTests
     [Fact]
     public void TorrentRemoveArguments_DefaultIds_ShouldBeEmpty()
     {
-        var args = new TorrentRemoveArguments();
+        var args = new TorrentRemoveArguments([]);
 
         args.Ids.Should().BeEmpty();
     }

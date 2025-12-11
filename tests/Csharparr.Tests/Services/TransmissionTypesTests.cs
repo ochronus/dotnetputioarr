@@ -63,21 +63,20 @@ public class TransmissionTypesTests
     [Fact]
     public void FromPutioTransfer_WithCompletedTransfer_ShouldMapCorrectly()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 123,
-            Hash = "abc123def456",
-            Name = "Test Download",
-            Size = 1000000,
-            Downloaded = 1000000,
-            FinishedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
-            EstimatedTime = 0,
-            Status = "COMPLETED",
-            StartedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
-            ErrorMessage = null,
-            FileId = 456,
-            UserfileExists = true
-        };
+        var transfer = new PutioTransfer(
+            Id: 123,
+            Hash: "abc123def456",
+            Name: "Test Download",
+            Size: 1000000,
+            Downloaded: 1000000,
+            FinishedAt: DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
+            EstimatedTime: 0,
+            Status: "COMPLETED",
+            StartedAt: DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
+            ErrorMessage: null,
+            FileId: 456,
+            UserfileExists: true
+        );
 
         var torrent = TransmissionTorrent.FromPutioTransfer(transfer, "/downloads");
 
@@ -98,21 +97,20 @@ public class TransmissionTypesTests
     [Fact]
     public void FromPutioTransfer_WithDownloadingTransfer_ShouldMapCorrectly()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 789,
-            Hash = "xyz789",
-            Name = "Downloading Item",
-            Size = 5000000,
-            Downloaded = 2500000,
-            FinishedAt = null,
-            EstimatedTime = 300,
-            Status = "DOWNLOADING",
-            StartedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
-            ErrorMessage = null,
-            FileId = 999,
-            UserfileExists = false
-        };
+        var transfer = new PutioTransfer(
+            Id: 789,
+            Hash: "xyz789",
+            Name: "Downloading Item",
+            Size: 5000000,
+            Downloaded: 2500000,
+            FinishedAt: null,
+            EstimatedTime: 300,
+            Status: "DOWNLOADING",
+            StartedAt: DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
+            ErrorMessage: null,
+            FileId: 999,
+            UserfileExists: false
+        );
 
         var torrent = TransmissionTorrent.FromPutioTransfer(transfer, "/downloads");
 
@@ -127,21 +125,20 @@ public class TransmissionTypesTests
     [Fact]
     public void FromPutioTransfer_WithErrorTransfer_ShouldMapErrorMessage()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 111,
-            Hash = "error123",
-            Name = "Failed Download",
-            Size = 1000,
-            Downloaded = 500,
-            FinishedAt = null,
-            EstimatedTime = null,
-            Status = "ERROR",
-            StartedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
-            ErrorMessage = "Network error",
-            FileId = null,
-            UserfileExists = false
-        };
+        var transfer = new PutioTransfer(
+            Id: 111,
+            Hash: "error123",
+            Name: "Failed Download",
+            Size: 1000,
+            Downloaded: 500,
+            FinishedAt: null,
+            EstimatedTime: null,
+            Status: "ERROR",
+            StartedAt: DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
+            ErrorMessage: "Network error",
+            FileId: null,
+            UserfileExists: false
+        );
 
         var torrent = TransmissionTorrent.FromPutioTransfer(transfer, "/downloads");
 
@@ -152,21 +149,20 @@ public class TransmissionTypesTests
     [Fact]
     public void FromPutioTransfer_WithNullName_ShouldDefaultToUnknown()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 222,
-            Hash = null,
-            Name = null,
-            Size = 1000,
-            Downloaded = 0,
-            FinishedAt = null,
-            EstimatedTime = null,
-            Status = "QUEUED",
-            StartedAt = null,
-            ErrorMessage = null,
-            FileId = null,
-            UserfileExists = false
-        };
+        var transfer = new PutioTransfer(
+            Id: 222,
+            Hash: null,
+            Name: null,
+            Size: 1000,
+            Downloaded: 0,
+            FinishedAt: null,
+            EstimatedTime: null,
+            Status: "QUEUED",
+            StartedAt: null,
+            ErrorMessage: null,
+            FileId: null,
+            UserfileExists: false
+        );
 
         var torrent = TransmissionTorrent.FromPutioTransfer(transfer, "/downloads");
 
@@ -177,21 +173,20 @@ public class TransmissionTypesTests
     [Fact]
     public void FromPutioTransfer_WithNullValues_ShouldDefaultToZero()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 1,
-            Hash = null,
-            Name = null,
-            Size = null,
-            Downloaded = null,
-            FinishedAt = null,
-            EstimatedTime = null,
-            Status = "QUEUED",
-            StartedAt = null,
-            ErrorMessage = null,
-            FileId = null,
-            UserfileExists = false
-        };
+        var transfer = new PutioTransfer(
+            Id: 1,
+            Hash: null,
+            Name: null,
+            Size: null,
+            Downloaded: null,
+            FinishedAt: null,
+            EstimatedTime: null,
+            Status: "QUEUED",
+            StartedAt: null,
+            ErrorMessage: null,
+            FileId: null,
+            UserfileExists: false
+        );
 
         var torrent = TransmissionTorrent.FromPutioTransfer(transfer, "/downloads");
 
@@ -204,21 +199,20 @@ public class TransmissionTypesTests
     [Fact]
     public void FromPutioTransfer_WithNegativeLeftUntilDone_ShouldClampToZero()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 333,
-            Hash = "test",
-            Name = "Test",
-            Size = 1000,
-            Downloaded = 1500, // Downloaded more than size
-            FinishedAt = null,
-            EstimatedTime = null,
-            Status = "DOWNLOADING",
-            StartedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
-            ErrorMessage = null,
-            FileId = 1,
-            UserfileExists = false
-        };
+        var transfer = new PutioTransfer(
+            Id: 333,
+            Hash: "test",
+            Name: "Test",
+            Size: 1000,
+            Downloaded: 1500, // Downloaded more than size
+            FinishedAt: null,
+            EstimatedTime: null,
+            Status: "DOWNLOADING",
+            StartedAt: DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss"),
+            ErrorMessage: null,
+            FileId: 1,
+            UserfileExists: false
+        );
 
         var torrent = TransmissionTorrent.FromPutioTransfer(transfer, "/downloads");
 
@@ -228,11 +222,7 @@ public class TransmissionTypesTests
     [Fact]
     public void TransmissionResponse_Serialization_ShouldBeCorrect()
     {
-        var response = new TransmissionResponse
-        {
-            Result = "success",
-            Arguments = null
-        };
+        var response = new TransmissionResponse("success");
 
         var json = JsonSerializer.Serialize(response);
 
@@ -254,16 +244,15 @@ public class TransmissionTypesTests
     [Fact]
     public void TransmissionConfig_Serialization_ShouldUseCorrectPropertyNames()
     {
-        var config = new TransmissionConfig
-        {
-            RpcVersion = "18",
-            Version = "14.0.0",
-            DownloadDir = "/downloads",
-            SeedRatioLimit = 2.0f,
-            SeedRatioLimited = true,
-            IdleSeedingLimit = 200,
-            IdleSeedingLimitEnabled = true
-        };
+        var config = new TransmissionConfig(
+            RpcVersion: "18",
+            Version: "14.0.0",
+            DownloadDir: "/downloads",
+            SeedRatioLimit: 2.0f,
+            SeedRatioLimited: true,
+            IdleSeedingLimit: 200,
+            IdleSeedingLimitEnabled: true
+        );
 
         var json = JsonSerializer.Serialize(config);
 
@@ -284,7 +273,7 @@ public class TransmissionTypesTests
     [Fact]
     public void TorrentRemoveArguments_ShouldHaveDefaultValues()
     {
-        var args = new TorrentRemoveArguments();
+        var args = new TorrentRemoveArguments([]);
 
         args.Ids.Should().BeEmpty();
         args.DeleteLocalData.Should().BeFalse();
@@ -293,7 +282,7 @@ public class TransmissionTypesTests
     [Fact]
     public void TorrentGetResponse_ShouldHaveEmptyTorrents()
     {
-        var response = new TorrentGetResponse();
+        var response = new TorrentGetResponse([]);
 
         response.Torrents.Should().BeEmpty();
     }
@@ -321,12 +310,11 @@ public class TransmissionTypesTests
     [Fact]
     public void FromPutioTransfer_WithInvalidStartedAt_ShouldUseCurrentTime()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 1,
-            Status = "DOWNLOADING",
-            StartedAt = "invalid-date"
-        };
+        var transfer = new PutioTransfer(
+            Id: 1,
+            Status: "DOWNLOADING",
+            StartedAt: "invalid-date"
+        );
 
         var torrent = TransmissionTorrent.FromPutioTransfer(transfer, "/downloads");
 
@@ -338,11 +326,10 @@ public class TransmissionTypesTests
     [Fact]
     public void TransmissionTorrent_SeedRatioValues_ShouldDefaultToZero()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 1,
-            Status = "COMPLETED"
-        };
+        var transfer = new PutioTransfer(
+            Id: 1,
+            Status: "COMPLETED"
+        );
 
         var torrent = TransmissionTorrent.FromPutioTransfer(transfer, "/downloads");
 

@@ -9,12 +9,11 @@ public class PutioClientTests
     [Fact]
     public void PutioTransfer_IsDownloadable_WithFileId_ShouldReturnTrue()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 1,
-            FileId = 123,
-            Status = "COMPLETED"
-        };
+        var transfer = new PutioTransfer(
+            Id: 1,
+            FileId: 123,
+            Status: "COMPLETED"
+        );
 
         transfer.IsDownloadable.Should().BeTrue();
     }
@@ -22,12 +21,11 @@ public class PutioClientTests
     [Fact]
     public void PutioTransfer_IsDownloadable_WithoutFileId_ShouldReturnFalse()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 1,
-            FileId = null,
-            Status = "DOWNLOADING"
-        };
+        var transfer = new PutioTransfer(
+            Id: 1,
+            FileId: null,
+            Status: "DOWNLOADING"
+        );
 
         transfer.IsDownloadable.Should().BeFalse();
     }
@@ -271,11 +269,10 @@ public class PutioClientTests
     [InlineData("IN_QUEUE")]
     public void PutioTransfer_Status_ShouldStoreAnyValue(string status)
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 1,
-            Status = status
-        };
+        var transfer = new PutioTransfer(
+            Id: 1,
+            Status: status
+        );
 
         transfer.Status.Should().Be(status);
     }
@@ -283,20 +280,19 @@ public class PutioClientTests
     [Fact]
     public void PutioTransfer_ErrorMessage_ShouldBeStored()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 1,
-            Status = "ERROR",
-            ErrorMessage = "Download failed: connection timeout"
-        };
+        var transfer = new PutioTransfer(
+            Id: 1,
+            Status: "ERROR",
+            ErrorMessage: "Download failed: connection timeout"
+        );
 
         transfer.ErrorMessage.Should().Be("Download failed: connection timeout");
     }
 
     [Fact]
-    public void FileInfo_DefaultValues_ShouldBeEmpty()
+    public void PutioFileInfo_DefaultValues_ShouldBeEmpty()
     {
-        var fileInfo = new Csharparr.Services.FileInfo();
+        var fileInfo = new PutioFileInfo(0);
 
         fileInfo.ContentType.Should().BeEmpty();
         fileInfo.Id.Should().Be(0);
@@ -334,13 +330,12 @@ public class PutioClientTests
     [Fact]
     public void PutioTransfer_Timestamps_ShouldBeParsable()
     {
-        var transfer = new PutioTransfer
-        {
-            Id = 1,
-            Status = "COMPLETED",
-            StartedAt = "2024-01-01T10:00:00",
-            FinishedAt = "2024-01-01T11:30:00"
-        };
+        var transfer = new PutioTransfer(
+            Id: 1,
+            Status: "COMPLETED",
+            StartedAt: "2024-01-01T10:00:00",
+            FinishedAt: "2024-01-01T11:30:00"
+        );
 
         DateTime.TryParse(transfer.StartedAt, out var started).Should().BeTrue();
         DateTime.TryParse(transfer.FinishedAt, out var finished).Should().BeTrue();

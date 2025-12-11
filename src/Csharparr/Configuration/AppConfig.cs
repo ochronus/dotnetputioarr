@@ -92,48 +92,47 @@ public sealed class AppConfig
         // Parse putio section
         if (tomlTable.TryGetValue("putio", out var putioSection) && putioSection is TomlTable putioTable)
         {
-            config.Putio = ParseArrConfig<PutioConfig>(putioTable);
+            config.Putio = ParsePutioConfig(putioTable);
         }
 
         // Parse sonarr section
         if (tomlTable.TryGetValue("sonarr", out var sonarrSection) && sonarrSection is TomlTable sonarrTable)
         {
-            config.Sonarr = ParseArrConfig<ArrConfig>(sonarrTable);
+            config.Sonarr = ParseArrConfig(sonarrTable);
         }
 
         // Parse radarr section
         if (tomlTable.TryGetValue("radarr", out var radarrSection) && radarrSection is TomlTable radarrTable)
         {
-            config.Radarr = ParseArrConfig<ArrConfig>(radarrTable);
+            config.Radarr = ParseArrConfig(radarrTable);
         }
 
         // Parse whisparr section
         if (tomlTable.TryGetValue("whisparr", out var whisparrSection) && whisparrSection is TomlTable whisparrTable)
         {
-            config.Whisparr = ParseArrConfig<ArrConfig>(whisparrTable);
+            config.Whisparr = ParseArrConfig(whisparrTable);
         }
 
         return config;
     }
 
-    private static T ParseArrConfig<T>(TomlTable table) where T : new()
+    private static PutioConfig ParsePutioConfig(TomlTable table)
     {
-        var config = new T();
+        var apiKey = table.TryGetValue("api_key", out var key)
+            ? key?.ToString() ?? ""
+            : "";
+        return new PutioConfig(apiKey);
+    }
 
-        if (config is PutioConfig putioConfig)
-        {
-            if (table.TryGetValue("api_key", out var apiKey))
-                putioConfig.ApiKey = apiKey?.ToString() ?? string.Empty;
-        }
-        else if (config is ArrConfig arrConfig)
-        {
-            if (table.TryGetValue("url", out var url))
-                arrConfig.Url = url?.ToString() ?? string.Empty;
-            if (table.TryGetValue("api_key", out var apiKey))
-                arrConfig.ApiKey = apiKey?.ToString() ?? string.Empty;
-        }
-
-        return config;
+    private static ArrConfig ParseArrConfig(TomlTable table)
+    {
+        var url = table.TryGetValue("url", out var u)
+            ? u?.ToString() ?? ""
+            : "";
+        var apiKey = table.TryGetValue("api_key", out var key)
+            ? key?.ToString() ?? ""
+            : "";
+        return new ArrConfig(url, apiKey);
     }
 
     /// <summary>
@@ -185,19 +184,12 @@ public sealed class AppConfig
 /// <summary>
 /// Put.io API configuration
 /// </summary>
-public sealed class PutioConfig
-{
-    public string ApiKey { get; set; } = string.Empty;
-}
+public sealed record PutioConfig(string ApiKey = "");
 
 /// <summary>
 /// Arr service (Sonarr/Radarr/Whisparr) configuration
 /// </summary>
-public sealed class ArrConfig
-{
-    public string Url { get; set; } = string.Empty;
-    public string ApiKey { get; set; } = string.Empty;
-}
+public sealed record ArrConfig(string Url = "", string ApiKey = "");
 
 /// <summary>
 /// Represents an arr service configuration with its name

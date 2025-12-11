@@ -275,14 +275,13 @@ public sealed class DownloadManager : BackgroundService
             case "FOLDER":
                 if (!DownloadHelpers.ShouldSkipDirectory(response.Parent.Name, _config.SkipDirectories))
                 {
-                    targets.Add(new DownloadTarget
-                    {
-                        From = string.Empty,
-                        To = to,
-                        TargetType = TargetType.Directory,
-                        TopLevel = topLevel,
-                        TransferHash = hash
-                    });
+                    targets.Add(new DownloadTarget(
+                        To: to,
+                        From: string.Empty,
+                        TargetType: TargetType.Directory,
+                        TopLevel: topLevel,
+                        TransferHash: hash
+                    ));
 
                     foreach (var file in response.Files)
                     {
@@ -294,14 +293,13 @@ public sealed class DownloadManager : BackgroundService
 
             case "VIDEO":
                 var url = await _putioClient.GetFileUrlAsync(response.Parent.Id, cancellationToken);
-                targets.Add(new DownloadTarget
-                {
-                    From = url,
-                    To = to,
-                    TargetType = TargetType.File,
-                    TopLevel = topLevel,
-                    TransferHash = hash
-                });
+                targets.Add(new DownloadTarget(
+                    To: to,
+                    From: url,
+                    TargetType: TargetType.File,
+                    TopLevel: topLevel,
+                    TransferHash: hash
+                ));
                 break;
         }
 

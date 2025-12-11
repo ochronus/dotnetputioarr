@@ -77,11 +77,7 @@ public class TransmissionController : ControllerBase
                 _ => throw new InvalidOperationException($"Unknown method: {request.Method}")
             };
 
-            return Ok(new TransmissionResponse
-            {
-                Result = "success",
-                Arguments = arguments
-            });
+            return Ok(new TransmissionResponse("success", arguments));
         }
         catch (InvalidOperationException ex) when (ex.Message.StartsWith("Unknown method:"))
         {
@@ -103,7 +99,7 @@ public class TransmissionController : ControllerBase
             .Select(t => TransmissionTorrent.FromPutioTransfer(t, _config.DownloadDirectory))
             .ToList();
 
-        return new TorrentGetResponse { Torrents = torrents };
+        return new TorrentGetResponse(torrents);
     }
 
     private async Task<object?> HandleTorrentAddAsync(TransmissionRequest request, CancellationToken cancellationToken)

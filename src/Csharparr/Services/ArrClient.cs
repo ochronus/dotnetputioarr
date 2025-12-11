@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 
 namespace Csharparr.Services;
 
@@ -105,35 +104,3 @@ public sealed class ArrClient : IDisposable
         }
     }
 }
-
-#region API Response Models
-
-public sealed class HistoryResponse
-{
-    [JsonPropertyName("totalRecords")]
-    public int TotalRecords { get; set; }
-
-    [JsonPropertyName("records")]
-    public List<HistoryRecord> Records { get; set; } = [];
-}
-
-public sealed class HistoryRecord
-{
-    [JsonPropertyName("eventType")]
-    public string EventType { get; set; } = string.Empty;
-
-    [JsonPropertyName("data")]
-    public Dictionary<string, string> Data { get; set; } = [];
-}
-
-#endregion
-
-#region Exceptions
-
-public class ArrClientException : Exception
-{
-    public ArrClientException(string message) : base(message) { }
-    public ArrClientException(string message, Exception innerException) : base(message, innerException) { }
-}
-
-#endregion

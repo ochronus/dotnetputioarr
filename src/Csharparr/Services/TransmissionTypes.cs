@@ -5,62 +5,57 @@ namespace Csharparr.Services;
 /// <summary>
 /// Transmission RPC response
 /// </summary>
-public sealed class TransmissionResponse
-{
-    [JsonPropertyName("result")]
-    public string Result { get; set; } = "success";
+public sealed record TransmissionResponse(
+    [property: JsonPropertyName("result")]
+    string Result = "success",
 
-    [JsonPropertyName("arguments")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public object? Arguments { get; set; }
-}
+    [property: JsonPropertyName("arguments")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    object? Arguments = null
+);
 
 /// <summary>
 /// Transmission RPC request
 /// </summary>
-public sealed class TransmissionRequest
-{
-    [JsonPropertyName("method")]
-    public string Method { get; set; } = string.Empty;
+public sealed record TransmissionRequest(
+    [property: JsonPropertyName("method")]
+    string Method = "",
 
-    [JsonPropertyName("arguments")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public object? Arguments { get; set; }
-}
+    [property: JsonPropertyName("arguments")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    object? Arguments = null
+);
 
 /// <summary>
 /// Transmission session configuration
 /// </summary>
-public sealed class TransmissionConfig
+public sealed record TransmissionConfig(
+    [property: JsonPropertyName("rpc-version")]
+    string RpcVersion = "18",
+
+    [property: JsonPropertyName("version")]
+    string Version = "14.0.0",
+
+    [property: JsonPropertyName("download-dir")]
+    string DownloadDir = "/",
+
+    [property: JsonPropertyName("seedRatioLimit")]
+    float SeedRatioLimit = 1.0f,
+
+    [property: JsonPropertyName("seedRatioLimited")]
+    bool SeedRatioLimited = true,
+
+    [property: JsonPropertyName("idle-seeding-limit")]
+    ulong IdleSeedingLimit = 100,
+
+    [property: JsonPropertyName("idle-seeding-limit-enabled")]
+    bool IdleSeedingLimitEnabled = false
+)
 {
-    [JsonPropertyName("rpc-version")]
-    public string RpcVersion { get; set; } = "18";
-
-    [JsonPropertyName("version")]
-    public string Version { get; set; } = "14.0.0";
-
-    [JsonPropertyName("download-dir")]
-    public string DownloadDir { get; set; } = "/";
-
-    [JsonPropertyName("seedRatioLimit")]
-    public float SeedRatioLimit { get; set; } = 1.0f;
-
-    [JsonPropertyName("seedRatioLimited")]
-    public bool SeedRatioLimited { get; set; } = true;
-
-    [JsonPropertyName("idle-seeding-limit")]
-    public ulong IdleSeedingLimit { get; set; } = 100;
-
-    [JsonPropertyName("idle-seeding-limit-enabled")]
-    public bool IdleSeedingLimitEnabled { get; set; }
-
     /// <summary>
     /// Creates a default configuration with the specified download directory
     /// </summary>
-    public static TransmissionConfig Default(string downloadDir) => new()
-    {
-        DownloadDir = downloadDir
-    };
+    public static TransmissionConfig Default(string downloadDir) => new(DownloadDir: downloadDir);
 }
 
 /// <summary>
@@ -193,32 +188,29 @@ public sealed class TransmissionTorrent
 /// <summary>
 /// Arguments for torrent-add method
 /// </summary>
-public sealed class TorrentAddArguments
-{
-    [JsonPropertyName("metainfo")]
-    public string? Metainfo { get; set; }
+public sealed record TorrentAddArguments(
+    [property: JsonPropertyName("metainfo")]
+    string? Metainfo = null,
 
-    [JsonPropertyName("filename")]
-    public string? Filename { get; set; }
-}
+    [property: JsonPropertyName("filename")]
+    string? Filename = null
+);
 
 /// <summary>
 /// Arguments for torrent-remove method
 /// </summary>
-public sealed class TorrentRemoveArguments
-{
-    [JsonPropertyName("ids")]
-    public List<string> Ids { get; set; } = [];
+public sealed record TorrentRemoveArguments(
+    [property: JsonPropertyName("ids")]
+    List<string> Ids,
 
-    [JsonPropertyName("delete-local-data")]
-    public bool DeleteLocalData { get; set; }
-}
+    [property: JsonPropertyName("delete-local-data")]
+    bool DeleteLocalData = false
+);
 
 /// <summary>
 /// Response for torrent-get method
 /// </summary>
-public sealed class TorrentGetResponse
-{
-    [JsonPropertyName("torrents")]
-    public List<TransmissionTorrent> Torrents { get; set; } = [];
-}
+public sealed record TorrentGetResponse(
+    [property: JsonPropertyName("torrents")]
+    List<TransmissionTorrent> Torrents
+);

@@ -15,33 +15,19 @@ public enum TargetType
 /// <summary>
 /// Represents a file or directory to be downloaded
 /// </summary>
-public sealed class DownloadTarget
+/// <param name="To">Destination path to download to</param>
+/// <param name="From">Source URL to download from (empty for directories)</param>
+/// <param name="TargetType">Type of the target (file or directory)</param>
+/// <param name="TopLevel">Whether this is the top-level target for a transfer</param>
+/// <param name="TransferHash">Hash of the parent transfer</param>
+public sealed record DownloadTarget(
+    string To,
+    string From = "",
+    TargetType TargetType = TargetType.File,
+    bool TopLevel = false,
+    string TransferHash = ""
+)
 {
-    /// <summary>
-    /// Source URL to download from (empty for directories)
-    /// </summary>
-    public string From { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Destination path to download to
-    /// </summary>
-    public required string To { get; set; }
-
-    /// <summary>
-    /// Type of the target (file or directory)
-    /// </summary>
-    public TargetType TargetType { get; set; }
-
-    /// <summary>
-    /// Whether this is the top-level target for a transfer
-    /// </summary>
-    public bool TopLevel { get; set; }
-
-    /// <summary>
-    /// Hash of the parent transfer
-    /// </summary>
-    public string TransferHash { get; set; } = string.Empty;
-
     public override string ToString()
     {
         var hash = TransferHash.Length > 4 ? TransferHash[..4] : TransferHash;
