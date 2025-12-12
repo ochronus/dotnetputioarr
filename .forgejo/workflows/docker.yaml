@@ -8,7 +8,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
 
 env:
   REGISTRY: codeberg.org
@@ -21,8 +21,18 @@ jobs:
     container:
       image: docker:latest
     steps:
+      - name: Install git
+        run: apk add --no-cache git curl
+
       - name: Checkout code
-        uses: https://code.forgejo.org/actions/checkout@v4
+        run: |
+          if echo "${{ forgejo.ref }}" | grep -q "^refs/tags/"; then
+            git clone --depth 1 ${{ forgejo.server_url }}/${{ forgejo.repository }}.git .
+            git fetch --tags
+            git checkout ${{ forgejo.ref_name }}
+          else
+            git clone --depth 1 --branch ${{ forgejo.ref_name }} ${{ forgejo.server_url }}/${{ forgejo.repository }}.git .
+          fi
 
       - name: Set up Docker Buildx
         run: |
