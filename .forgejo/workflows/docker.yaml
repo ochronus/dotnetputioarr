@@ -1,0 +1,84 @@
+# Forgejo Actions Docker Workflow
+# Builds and pushes Docker images on push to main and tags
+
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: codeberg.org
+  IMAGE_NAME: ${{ forgejo.repository }}
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: docker
+    container:
+      image: docker:latest
+    steps:
+      - name: Checkout code
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        run: |
+          docker buildx create --use --name builder || true
+          docker buildx inspect --bootstrap
+
+      - name: Determine image tags
+        id: tags
+        run: |
+          TAGS=""
+          REF="${{ forgejo.ref }}"
+          REF_NAME="${{ forgejo.ref_name }}"
+          REGISTRY="${{ env.REGISTRY }}"
+          IMAGE="${{ env.IMAGE_NAME }}"
+
+          if echo "$REF" | grep -q "^refs/tags/"; then
+            # Tag push - use version tag and latest
+            VERSION="$REF_NAME"
+            TAGS="${REGISTRY}/${IMAGE}:latest,${REGISTRY}/${IMAGE}:${VERSION}"
+          elif echo "$REF" | grep -q "^refs/heads/main$"; then
+            # Main branch push
+            TAGS="${REGISTRY}/${IMAGE}:main-latest"
+          else
+            # Other branches - use commit SHA
+            TAGS="${REGISTRY}/${IMAGE}:${{ forgejo.sha }}"
+          fi
+
+          echo "tags=${TAGS}" >> $FORGEJO_OUTPUT
+          echo "Image tags: ${TAGS}"
+
+      - name: Login to Container Registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+        run: |
+          echo "${REGISTRY_TOKEN}" | docker login ${{ env.REGISTRY }} -u "${REGISTRY_USER}" --password-stdin
+
+      - name: Build and push Docker image
+        run: |
+          TAGS="${{ steps.tags.outputs.tags }}"
+
+          # Convert comma-separated tags to -t arguments
+          TAG_ARGS=""
+          for tag in $(echo "$TAGS" | tr ',' ' '); do
+            TAG_ARGS="$TAG_ARGS -t $tag"
+          done
+
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --push \
+            $TAG_ARGS \
+            --label "org.opencontainers.image.source=${{ forgejo.server_url }}/${{ forgejo.repository }}" \
+            --label "org.opencontainers.image.revision=${{ forgejo.sha }}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            .
+
+      - name: Logout from Container Registry
+        if: always()
+        run: docker logout ${{ env.REGISTRY }}

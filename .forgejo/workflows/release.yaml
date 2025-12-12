@@ -1,0 +1,168 @@
+# Forgejo Actions Release Workflow
+# Triggered on version tags to build release binaries
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: docker
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
+    steps:
+      - name: Checkout code
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Run tests
+        run: dotnet test --no-build -c Release --verbosity normal
+
+  build-linux-x64:
+    name: Build Linux x64
+    runs-on: docker
+    needs: test
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
+    steps:
+      - name: Checkout code
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build self-contained binary
+        run: |
+          dotnet publish src/Csharparr/Csharparr.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=false \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true \
+            -o ./publish
+
+      - name: Rename and package artifact
+        run: |
+          mv ./publish/csharparr ./publish/csharparr-linux-x64
+          cd publish && sha256sum csharparr-linux-x64 > csharparr-linux-x64.sha256
+
+      - name: Upload artifact
+        uses: https://code.forgejo.org/actions/upload-artifact@v3
+        with:
+          name: csharparr-linux-x64
+          path: |
+            ./publish/csharparr-linux-x64
+            ./publish/csharparr-linux-x64.sha256
+
+  build-linux-arm64:
+    name: Build Linux ARM64
+    runs-on: docker
+    needs: test
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:10.0
+    steps:
+      - name: Checkout code
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build self-contained binary
+        run: |
+          dotnet publish src/Csharparr/Csharparr.csproj \
+            -c Release \
+            -r linux-arm64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=false \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true \
+            -o ./publish
+
+      - name: Rename and package artifact
+        run: |
+          mv ./publish/csharparr ./publish/csharparr-linux-arm64
+          cd publish && sha256sum csharparr-linux-arm64 > csharparr-linux-arm64.sha256
+
+      - name: Upload artifact
+        uses: https://code.forgejo.org/actions/upload-artifact@v3
+        with:
+          name: csharparr-linux-arm64
+          path: |
+            ./publish/csharparr-linux-arm64
+            ./publish/csharparr-linux-arm64.sha256
+
+  release:
+    name: Create Release
+    runs-on: docker
+    needs:
+      - build-linux-x64
+      - build-linux-arm64
+    container:
+      image: alpine:latest
+    steps:
+      - name: Install dependencies
+        run: apk add --no-cache curl jq
+
+      - name: Download linux-x64 artifact
+        uses: https://code.forgejo.org/actions/download-artifact@v3
+        with:
+          name: csharparr-linux-x64
+          path: ./release
+
+      - name: Download linux-arm64 artifact
+        uses: https://code.forgejo.org/actions/download-artifact@v3
+        with:
+          name: csharparr-linux-arm64
+          path: ./release
+
+      - name: List release files
+        run: ls -la ./release/
+
+      - name: Create release
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          TAG_NAME="${{ forgejo.ref_name }}"
+          REPO="${{ forgejo.repository }}"
+          API_URL="${{ forgejo.api_url }}"
+
+          echo "Creating release for tag: $TAG_NAME"
+
+          # Create the release
+          RELEASE_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token ${FORGEJO_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "${API_URL}/repos/${REPO}/releases" \
+            -d "{\"tag_name\": \"${TAG_NAME}\", \"name\": \"Release ${TAG_NAME}\", \"body\": \"Release ${TAG_NAME}\", \"draft\": false, \"prerelease\": false}")
+
+          RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id')
+          echo "Release ID: $RELEASE_ID"
+
+          # Upload assets
+          for file in ./release/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              echo "Uploading: $FILENAME"
+              curl -s -X POST \
+                -H "Authorization: token ${FORGEJO_TOKEN}" \
+                -H "Content-Type: application/octet-stream" \
+                "${API_URL}/repos/${REPO}/releases/${RELEASE_ID}/assets?name=${FILENAME}" \
+                --data-binary "@${file}"
+            fi
+          done
