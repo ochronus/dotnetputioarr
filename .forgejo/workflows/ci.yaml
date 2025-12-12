@@ -29,8 +29,11 @@ jobs:
           apt-get install -y git
 
       - name: Checkout code
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
         run: |
-          git clone --depth 1 --branch ${{ forgejo.ref_name }} ${{ forgejo.server_url }}/${{ forgejo.repository }}.git .
+          git clone --depth 1 --branch ${{ forgejo.ref_name }} \
+            https://oauth2:${FORGEJO_TOKEN}@forge.csa.ba/${{ forgejo.repository }}.git .
           git checkout ${{ forgejo.sha }}
 
       - name: Restore dependencies
@@ -54,8 +57,11 @@ jobs:
           apt-get install -y git
 
       - name: Checkout code
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
         run: |
-          git clone --depth 1 --branch ${{ forgejo.ref_name }} ${{ forgejo.server_url }}/${{ forgejo.repository }}.git .
+          git clone --depth 1 --branch ${{ forgejo.ref_name }} \
+            https://oauth2:${FORGEJO_TOKEN}@forge.csa.ba/${{ forgejo.repository }}.git .
           git checkout ${{ forgejo.sha }}
 
       - name: Check formatting

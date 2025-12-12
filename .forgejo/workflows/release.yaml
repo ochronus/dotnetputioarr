@@ -25,8 +25,11 @@ jobs:
           apt-get install -y git curl jq
 
       - name: Checkout code
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
         run: |
-          git clone --depth 1 ${{ forgejo.server_url }}/${{ forgejo.repository }}.git .
+          git clone --depth 1 \
+            https://oauth2:${FORGEJO_TOKEN}@forge.csa.ba/${{ forgejo.repository }}.git .
           git fetch --tags
           git checkout ${{ forgejo.ref_name }}
 
