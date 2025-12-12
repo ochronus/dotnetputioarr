@@ -10,7 +10,7 @@ namespace Csharparr.Commands;
 /// </summary>
 public static class CommandHandler
 {
-    public const string Version = "0.1.4";
+    public const string Version = "0.1.5";
 
     /// <summary>
     /// Creates the root command with all subcommands

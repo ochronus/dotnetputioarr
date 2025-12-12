@@ -72,7 +72,6 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
     .MinimumLevel.Override("Polly", LogEventLevel.Warning)
-    .MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Debug)
     .Enrich.FromLogContext()
     .WriteTo.Console(
         outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
@@ -110,6 +109,7 @@ try
         {
             client.Timeout = TimeSpan.FromSeconds(30);
         })
+        .RemoveAllLoggers()
         .AddResilienceHandler("putio-resilience", builder =>
         {
             // Retry policy: retry on transient errors with exponential backoff
@@ -141,6 +141,7 @@ try
         {
             client.Timeout = TimeSpan.FromSeconds(60);
         })
+        .RemoveAllLoggers()
         .AddResilienceHandler("arr-resilience", builder =>
         {
             builder.AddRetry(new HttpRetryStrategyOptions
@@ -169,6 +170,7 @@ try
         {
             client.Timeout = TimeSpan.FromMinutes(30);
         })
+        .RemoveAllLoggers()
         .AddResilienceHandler("download-resilience", builder =>
         {
             builder.AddRetry(new HttpRetryStrategyOptions

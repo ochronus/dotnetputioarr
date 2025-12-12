@@ -5,11 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2025-12-12
+
+### Fixed
+
+- Properly disabled verbose `IHttpClientFactory` logging (e.g., "Start processing HTTP request", "Sending HTTP request", "Received HTTP response headers") by using `RemoveAllLoggers()` on all HTTP client configurations
+
 ## [0.1.4] - 2025-12-12
 
 ### Fixed
 
-- Suppressed verbose `System.Net.Http.HttpClient` framework logs (e.g., "Start processing HTTP request", "Sending HTTP request", "Received HTTP response headers") by setting their log level to Debug
+- Attempted to suppress `System.Net.Http.HttpClient` framework logs via Serilog override (did not work - see 0.1.5)
 
 ## [0.1.3] - 2025-12-11
 
@@ -84,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD with GitHub Actions
 - Dependabot configured for automated dependency updates
 
+[0.1.5]: https://github.com/ochronus/csharparr/releases/tag/v0.1.5
 [0.1.4]: https://github.com/ochronus/csharparr/releases/tag/v0.1.4
 [0.1.3]: https://github.com/ochronus/csharparr/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ochronus/csharparr/releases/tag/v0.1.2
