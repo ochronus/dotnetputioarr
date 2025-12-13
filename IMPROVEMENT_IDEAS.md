@@ -86,7 +86,7 @@ A new `HttpClient` is created and disposed for each service in the loop. Ineffic
 
 ---
 
-### 7. Hardcoded Version Out of Sync
+### 7. ~~Hardcoded Version Out of Sync~~ ✅ DONE (v0.1.8)
 
 **Location:** `Commands/CommandHandler.cs`
 
@@ -100,6 +100,8 @@ This constant doesn't match the version in the csproj file and must be manually 
 ```csharp
 Assembly.GetExecutingAssembly().GetName().Version?.ToString()
 ```
+
+**Status:** Fixed in v0.1.8 - Changed `Version` from a hardcoded constant to a property that reads from assembly metadata using `Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)`. Version is now only maintained in the .csproj file.
 
 ---
 
@@ -227,6 +229,6 @@ Current state:
 3. ~~Add retry logic with Polly (#3) - high impact~~ ✅ DONE
 4. ~~Add error response bodies (#4)~~ ✅ DONE
 5. Add health check endpoint (#9)
-6. Fix version handling (#7)
+6. ~~Fix version handling (#7)~~ ✅ DONE
 7. Refactor HttpClient usage (#5, #6) - partially done via Polly integration
 8. Everything else based on need

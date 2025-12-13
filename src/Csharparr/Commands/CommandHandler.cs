@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.CommandLine.Parsing;
+using System.Reflection;
 using Csharparr.Configuration;
 using Csharparr.Services;
 
@@ -10,7 +11,7 @@ namespace Csharparr.Commands;
 /// </summary>
 public static class CommandHandler
 {
-    public const string Version = "0.1.5";
+    public static string Version => Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
 
     /// <summary>
     /// Creates the root command with all subcommands
