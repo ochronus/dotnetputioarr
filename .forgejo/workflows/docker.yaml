@@ -10,10 +10,6 @@ on:
     tags:
       - "v*"
 
-env:
-  REGISTRY: codeberg.org
-  IMAGE_NAME: ${{ forgejo.repository }}
-
 jobs:
   build-and-push:
     name: Build and Push Docker Image
@@ -49,8 +45,8 @@ jobs:
           TAGS=""
           REF="${{ forgejo.ref }}"
           REF_NAME="${{ forgejo.ref_name }}"
-          REGISTRY="${{ env.REGISTRY }}"
-          IMAGE="${{ env.IMAGE_NAME }}"
+          REGISTRY="forge.csa.ba"
+          IMAGE="${{ forgejo.repository }}"
 
           if echo "$REF" | grep -q "^refs/tags/"; then
             # Tag push - use version tag and latest
@@ -67,12 +63,11 @@ jobs:
           echo "tags=${TAGS}" >> $FORGEJO_OUTPUT
           echo "Image tags: ${TAGS}"
 
-      - name: Login to Container Registry
+      - name: Login to Forgejo Container Registry
         env:
-          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
         run: |
-          echo "${REGISTRY_TOKEN}" | docker login ${{ env.REGISTRY }} -u "${REGISTRY_USER}" --password-stdin
+          echo "${FORGEJO_TOKEN}" | docker login forge.csa.ba -u ${{ forgejo.repository_owner }} --password-stdin
 
       - name: Build and push Docker image
         run: |
@@ -95,4 +90,4 @@ jobs:
 
       - name: Logout from Container Registry
         if: always()
-        run: docker logout ${{ env.REGISTRY }}
+        run: docker logout forge.csa.ba
