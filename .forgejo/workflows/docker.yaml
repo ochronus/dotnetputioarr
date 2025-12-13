@@ -14,11 +14,10 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: docker
-    container:
-      image: docker:latest
     steps:
       - name: Install git
-        run: apk add --no-cache git curl
+        run: |
+          which git || (apt-get update && apt-get install -y git) || (apk add --no-cache git) || true
 
       - name: Checkout code
         env:
