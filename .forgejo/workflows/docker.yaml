@@ -14,10 +14,18 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: docker
+    container:
+      image: docker:dind
+      options: --privileged
     steps:
-      - name: Install git
+      - name: Start Docker daemon
         run: |
-          which git || (apt-get update && apt-get install -y git) || (apk add --no-cache git) || true
+          dockerd &
+          sleep 5
+          docker info
+
+      - name: Install git
+        run: apk add --no-cache git curl
 
       - name: Checkout code
         env:
