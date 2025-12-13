@@ -3,6 +3,7 @@ using System.CommandLine.Parsing;
 using System.Reflection;
 using Csharparr.Configuration;
 using Csharparr.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Csharparr.Commands;
 
@@ -30,17 +31,17 @@ public static class CommandHandler
         // Run command
         var runCommand = new Command("run", "Run the proxy");
         runCommand.Add(configOption);
-        runCommand.SetAction(async (parseResult, cancellationToken) =>
+        runCommand.SetAction(parseResult =>
         {
             var configPath = parseResult.GetValue(configOption) ?? AppConfig.DefaultConfigPath;
-            await RunProxyAsync(configPath);
+            RunProxy(configPath);
         });
 
         // Get-token command
         var getTokenCommand = new Command("get-token", "Generate a put.io API token");
         getTokenCommand.SetAction(async (parseResult, cancellationToken) =>
         {
-            await GetTokenAsync();
+            await GetTokenAsync(cancellationToken);
         });
 
         // Generate-config command
@@ -54,7 +55,7 @@ public static class CommandHandler
         generateConfigCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var configPath = parseResult.GetValue(generateConfigOption) ?? AppConfig.DefaultConfigPath;
-            await GenerateConfigAsync(configPath);
+            await GenerateConfigAsync(configPath, cancellationToken);
         });
 
         // Version command
@@ -75,7 +76,7 @@ public static class CommandHandler
     /// <summary>
     /// Runs the proxy server
     /// </summary>
-    private static async Task RunProxyAsync(string configPath)
+    private static void RunProxy(string configPath)
     {
         // This is handled by Program.cs to set up the full ASP.NET Core pipeline
         // We store the config path for later use
@@ -95,10 +96,6 @@ public static class CommandHandler
             var config = AppConfig.Load(configPath);
             config.Validate();
 
-            // Verify put.io API key
-            using var client = new PutioClient(config.Putio.ApiKey);
-            await client.GetAccountInfoAsync();
-
             Console.WriteLine($"Configuration validated successfully.");
         }
         catch (Exception ex)
@@ -111,15 +108,20 @@ public static class CommandHandler
     /// <summary>
     /// Gets a new Put.io API token via OOB authentication
     /// </summary>
-    public static async Task<string> GetTokenAsync()
+    public static async Task<string> GetTokenAsync(CancellationToken cancellationToken)
     {
         Console.WriteLine();
+
+        // Since this runs outside the DI container, we create the client manually.
+        using var httpClient = new HttpClient();
+        var logger = NullLogger<PutioClient>.Instance;
+        var client = new PutioClient(httpClient, logger);
 
         // Get OOB code
         string oobCode;
         try
         {
-            oobCode = await PutioClient.GetOobCodeAsync();
+            oobCode = await client.GetOobCodeAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -133,15 +135,15 @@ public static class CommandHandler
         // Poll for token every 3 seconds
         while (true)
         {
-            await Task.Delay(TimeSpan.FromSeconds(3));
+            await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
 
             try
             {
-                var token = await PutioClient.CheckOobAsync(oobCode);
+                var token = await client.CheckOobAsync(oobCode, cancellationToken);
                 Console.WriteLine($"Put.io API token: {token}");
                 return token;
             }
-            catch
+            catch when (!cancellationToken.IsCancellationRequested)
             {
                 // Not linked yet, continue waiting
             }
@@ -151,12 +153,12 @@ public static class CommandHandler
     /// <summary>
     /// Generates a configuration file
     /// </summary>
-    public static async Task GenerateConfigAsync(string configPath)
+    public static async Task GenerateConfigAsync(string configPath, CancellationToken cancellationToken)
     {
         Console.WriteLine($"Generating config {configPath}");
 
         // Get Put.io token
-        var putioApiKey = await GetTokenAsync();
+        var putioApiKey = await GetTokenAsync(cancellationToken);
 
         // Config template
         var configTemplate = $"""

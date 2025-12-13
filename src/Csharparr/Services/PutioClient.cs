@@ -9,16 +9,13 @@ namespace Csharparr.Services;
 /// <summary>
 /// Put.io API client for interacting with the put.io service
 /// </summary>
-public sealed class PutioClient : IDisposable
+public sealed class PutioClient : IPutioClient
 {
-    public const string HttpClientName = "PutioClient";
-
     private const string BaseUrl = "https://api.put.io/v2";
     private const string UploadUrl = "https://upload.put.io/v2";
 
     private readonly HttpClient _httpClient;
-    private readonly ILogger<PutioClient>? _logger;
-    private bool _disposed;
+    private readonly ILogger<PutioClient> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,15 +24,10 @@ public sealed class PutioClient : IDisposable
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public PutioClient(string apiToken) : this(apiToken, null, null) { }
-
-    public PutioClient(string apiToken, HttpClient? httpClient) : this(apiToken, httpClient, null) { }
-
-    public PutioClient(string apiToken, HttpClient? httpClient, ILogger<PutioClient>? logger)
+    public PutioClient(HttpClient httpClient, ILogger<PutioClient> logger)
     {
+        _httpClient = httpClient;
         _logger = logger;
-        _httpClient = httpClient ?? new HttpClient();
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiToken);
     }
 
     /// <summary>
@@ -43,7 +35,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task<AccountInfo> GetAccountInfoAsync(CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Getting account info from put.io");
+        _logger.LogDebug("Getting account info from put.io");
 
         var response = await _httpClient.GetAsync($"{BaseUrl}/account/info", cancellationToken);
 
@@ -64,7 +56,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task<IReadOnlyList<PutioTransfer>> ListTransfersAsync(CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Listing transfers from put.io");
+        _logger.LogDebug("Listing transfers from put.io");
 
         var response = await _httpClient.GetAsync($"{BaseUrl}/transfers/list", cancellationToken);
 
@@ -85,7 +77,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task<PutioTransfer> GetTransferAsync(ulong transferId, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Getting transfer {TransferId} from put.io", transferId);
+        _logger.LogDebug("Getting transfer {TransferId} from put.io", transferId);
 
         var response = await _httpClient.GetAsync($"{BaseUrl}/transfers/{transferId}", cancellationToken);
 
@@ -106,7 +98,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task RemoveTransferAsync(ulong transferId, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Removing transfer {TransferId} from put.io", transferId);
+        _logger.LogDebug("Removing transfer {TransferId} from put.io", transferId);
 
         using var content = new MultipartFormDataContent
         {
@@ -127,7 +119,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task DeleteFileAsync(long fileId, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Deleting file {FileId} from put.io", fileId);
+        _logger.LogDebug("Deleting file {FileId} from put.io", fileId);
 
         using var content = new MultipartFormDataContent
         {
@@ -148,7 +140,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task AddTransferAsync(string url, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Adding transfer to put.io: {Url}", url);
+        _logger.LogDebug("Adding transfer to put.io: {Url}", url);
 
         using var content = new MultipartFormDataContent
         {
@@ -169,7 +161,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task UploadFileAsync(byte[] data, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Uploading torrent file to put.io ({Size} bytes)", data.Length);
+        _logger.LogDebug("Uploading torrent file to put.io ({Size} bytes)", data.Length);
 
         using var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(data);
@@ -191,7 +183,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task<ListFileResponse> ListFilesAsync(long fileId, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Listing files in directory {FileId} from put.io", fileId);
+        _logger.LogDebug("Listing files in directory {FileId} from put.io", fileId);
 
         var response = await _httpClient.GetAsync($"{BaseUrl}/files/list?parent_id={fileId}", cancellationToken);
 
@@ -210,7 +202,7 @@ public sealed class PutioClient : IDisposable
     /// </summary>
     public async Task<string> GetFileUrlAsync(long fileId, CancellationToken cancellationToken = default)
     {
-        _logger?.LogDebug("Getting download URL for file {FileId} from put.io", fileId);
+        _logger.LogDebug("Getting download URL for file {FileId} from put.io", fileId);
 
         var response = await _httpClient.GetAsync($"{BaseUrl}/files/{fileId}/url", cancellationToken);
 
@@ -229,10 +221,9 @@ public sealed class PutioClient : IDisposable
     /// <summary>
     /// Gets a new OOB code for authentication
     /// </summary>
-    public static async Task<string> GetOobCodeAsync(CancellationToken cancellationToken = default)
+    public async Task<string> GetOobCodeAsync(CancellationToken cancellationToken = default)
     {
-        using var httpClient = new HttpClient();
-        var response = await httpClient.GetAsync("https://api.put.io/v2/oauth2/oob/code?app_id=6487", cancellationToken);
+        var response = await _httpClient.GetAsync("https://api.put.io/v2/oauth2/oob/code?app_id=6487", cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -254,10 +245,9 @@ public sealed class PutioClient : IDisposable
     /// <summary>
     /// Checks if the OOB code has been linked and returns the OAuth token
     /// </summary>
-    public static async Task<string> CheckOobAsync(string oobCode, CancellationToken cancellationToken = default)
+    public async Task<string> CheckOobAsync(string oobCode, CancellationToken cancellationToken = default)
     {
-        using var httpClient = new HttpClient();
-        var response = await httpClient.GetAsync($"https://api.put.io/v2/oauth2/oob/code/{oobCode}", cancellationToken);
+        var response = await _httpClient.GetAsync($"https://api.put.io/v2/oauth2/oob/code/{oobCode}", cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -299,14 +289,5 @@ public sealed class PutioClient : IDisposable
             // Ignore errors reading the body
         }
         return string.Empty;
-    }
-
-    public void Dispose()
-    {
-        if (!_disposed)
-        {
-            _httpClient.Dispose();
-            _disposed = true;
-        }
     }
 }

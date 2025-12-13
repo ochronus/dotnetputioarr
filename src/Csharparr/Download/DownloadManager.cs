@@ -12,7 +12,8 @@ namespace Csharparr.Download;
 public sealed class DownloadManager : BackgroundService
 {
     private readonly AppConfig _config;
-    private readonly PutioClient _putioClient;
+    private readonly IPutioClient _putioClient;
+    private readonly IArrClientFactory _arrClientFactory;
     private readonly ILogger<DownloadManager> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
 
@@ -25,12 +26,14 @@ public sealed class DownloadManager : BackgroundService
 
     public DownloadManager(
         AppConfig config,
-        PutioClient putioClient,
+        IPutioClient putioClient,
+        IArrClientFactory arrClientFactory,
         ILogger<DownloadManager> logger,
         IHttpClientFactory httpClientFactory)
     {
         _config = config;
         _putioClient = putioClient;
+        _arrClientFactory = arrClientFactory;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
 
@@ -411,8 +414,8 @@ public sealed class DownloadManager : BackgroundService
 
         foreach (var target in fileTargets)
         {
-            var (imported, serviceName) = await ArrClient.CheckImportedMultiServiceAsync(
-                target.To, services, _logger, cancellationToken);
+            var (imported, serviceName) = await _arrClientFactory.CheckImportedMultiServiceAsync(
+                target.To, services, cancellationToken);
 
             if (imported && serviceName is not null)
             {

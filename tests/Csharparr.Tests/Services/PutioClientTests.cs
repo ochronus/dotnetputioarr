@@ -345,28 +345,7 @@ public class PutioClientTests
     [Fact]
     public void PutioClient_Constructor_ShouldNotThrow()
     {
-        var action = () => new PutioClient("test-token");
-
-        action.Should().NotThrow();
-    }
-
-    [Fact]
-    public void PutioClient_Dispose_ShouldNotThrow()
-    {
-        var client = new PutioClient("test-token");
-
-        var action = () => client.Dispose();
-
-        action.Should().NotThrow();
-    }
-
-    [Fact]
-    public void PutioClient_DoubleDispose_ShouldNotThrow()
-    {
-        var client = new PutioClient("test-token");
-
-        client.Dispose();
-        var action = () => client.Dispose();
+        var action = () => CreateClient();
 
         action.Should().NotThrow();
     }
@@ -398,5 +377,12 @@ public class PutioClientTests
         response.Transfer.Id.Should().Be(123);
         response.Transfer.Status.Should().Be("SEEDING");
         response.Transfer.IsDownloadable.Should().BeTrue();
+    }
+
+    private static PutioClient CreateClient()
+    {
+        var httpClient = new HttpClient();
+        var logger = new Microsoft.Extensions.Logging.Abstractions.NullLogger<PutioClient>();
+        return new PutioClient(httpClient, logger);
     }
 }

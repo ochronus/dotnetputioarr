@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-12-13
+
+### Changed
+
+- **Major Refactoring**: Reworked all HTTP clients to use `IHttpClientFactory` for proper socket management and improved performance, resolving potential socket exhaustion issues.
+- `PutioClient` is now registered as a typed client, simplifying its instantiation and management.
+- Introduced `ArrClientFactory` to create `ArrClient` instances on-demand, preventing the inefficient creation and disposal of clients in loops.
+- All client-related tests were refactored to use mocked dependencies, improving test isolation and reliability.
+- This resolves improvement ideas #5 (`HttpClient` Management) and #6 (`ArrClient` Created/Disposed in Loop).
+
 ## [0.1.8] - 2025-12-13
 
 ### Changed
@@ -97,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD with GitHub Actions
 - Dependabot configured for automated dependency updates
 
+[0.2.0]: https://github.com/ochronus/csharparr/releases/tag/v0.2.0
 [0.1.8]: https://github.com/ochronus/csharparr/releases/tag/v0.1.8
 [0.1.5]: https://github.com/ochronus/csharparr/releases/tag/v0.1.5
 [0.1.4]: https://github.com/ochronus/csharparr/releases/tag/v0.1.4

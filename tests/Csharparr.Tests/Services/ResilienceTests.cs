@@ -121,21 +121,6 @@ public class ResilienceTests
     }
 }
 
-public class HttpClientNamingTests
-{
-    [Fact]
-    public void PutioClient_HttpClientName_ShouldBeConsistent()
-    {
-        Csharparr.Services.PutioClient.HttpClientName.Should().Be("PutioClient");
-    }
-
-    [Fact]
-    public void ArrClient_HttpClientName_ShouldBeConsistent()
-    {
-        Csharparr.Services.ArrClient.HttpClientName.Should().Be("ArrClient");
-    }
-}
-
 public class ErrorBodyReadingTests
 {
     [Fact]

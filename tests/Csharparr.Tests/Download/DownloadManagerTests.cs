@@ -11,12 +11,16 @@ public class DownloadManagerTests
 {
     private readonly Mock<ILogger<DownloadManager>> _mockLogger;
     private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
+    private readonly Mock<IPutioClient> _mockPutioClient;
+    private readonly Mock<IArrClientFactory> _mockArrClientFactory;
     private readonly AppConfig _config;
 
     public DownloadManagerTests()
     {
         _mockLogger = new Mock<ILogger<DownloadManager>>();
         _mockHttpClientFactory = new Mock<IHttpClientFactory>();
+        _mockPutioClient = new Mock<IPutioClient>();
+        _mockArrClientFactory = new Mock<IArrClientFactory>();
         _config = new AppConfig
         {
             DownloadDirectory = "/downloads",
@@ -29,12 +33,10 @@ public class DownloadManagerTests
     [Fact]
     public void DownloadManager_Constructor_ShouldNotThrow()
     {
-        using var httpClient = new HttpClient();
-        var putioClient = new PutioClient("test-token", httpClient);
-
         var action = () => new DownloadManager(
             _config,
-            putioClient,
+            _mockPutioClient.Object,
+            _mockArrClientFactory.Object,
             _mockLogger.Object,
             _mockHttpClientFactory.Object);
 
@@ -44,12 +46,10 @@ public class DownloadManagerTests
     [Fact]
     public void DownloadManager_ShouldImplementBackgroundService()
     {
-        using var httpClient = new HttpClient();
-        var putioClient = new PutioClient("test-token", httpClient);
-
         var manager = new DownloadManager(
             _config,
-            putioClient,
+            _mockPutioClient.Object,
+            _mockArrClientFactory.Object,
             _mockLogger.Object,
             _mockHttpClientFactory.Object);
 
@@ -60,11 +60,10 @@ public class DownloadManagerTests
     public async Task DownloadManager_WhenStarted_ShouldLogStartupMessage()
     {
         // Arrange
-        using var httpClient = new HttpClient();
-        var putioClient = new PutioClient("test-token", httpClient);
         var manager = new DownloadManager(
             _config,
-            putioClient,
+            _mockPutioClient.Object,
+            _mockArrClientFactory.Object,
             _mockLogger.Object,
             _mockHttpClientFactory.Object);
 

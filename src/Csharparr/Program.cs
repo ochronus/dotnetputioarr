@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.Net;
+using System.Net.Http.Headers;
 using Csharparr.Commands;
 using Csharparr.Configuration;
 using Csharparr.Download;
@@ -81,38 +82,21 @@ try
 {
     Log.Information("Starting csharparr, version {Version}", CommandHandler.Version);
 
-    // Verify put.io API key
-    using (var client = new PutioClient(config.Putio.ApiKey))
-    {
-        try
-        {
-            await client.GetAccountInfoAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to verify put.io API key");
-            return;
-        }
-    }
-
-    // Build the web application
     var builder = WebApplication.CreateBuilder(webArgs);
 
-    // Configure Serilog
     builder.Host.UseSerilog();
 
-    // Add services
     builder.Services.AddSingleton(config);
 
-    // Configure HttpClient for PutioClient with resilience policies
-    builder.Services.AddHttpClient(PutioClient.HttpClientName, client =>
+    // Configure typed HttpClient for PutioClient with resilience policies
+    builder.Services.AddHttpClient<IPutioClient, PutioClient>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.Putio.ApiKey);
         })
         .RemoveAllLoggers()
         .AddResilienceHandler("putio-resilience", builder =>
         {
-            // Retry policy: retry on transient errors with exponential backoff
             builder.AddRetry(new HttpRetryStrategyOptions
             {
                 MaxRetryAttempts = 3,
@@ -121,8 +105,6 @@ try
                 UseJitter = true,
                 ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
             });
-
-            // Circuit breaker: prevent hammering a failing service
             builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
             {
                 SamplingDuration = TimeSpan.FromSeconds(30),
@@ -131,13 +113,11 @@ try
                 BreakDuration = TimeSpan.FromSeconds(30),
                 ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
             });
-
-            // Timeout per attempt
             builder.AddTimeout(TimeSpan.FromSeconds(10));
         });
 
-    // Configure HttpClient for ArrClient with resilience policies
-    builder.Services.AddHttpClient(ArrClient.HttpClientName, client =>
+    // Configure named HttpClient for ArrClient with resilience policies
+    builder.Services.AddHttpClient("ArrClient", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(60);
         })
@@ -152,7 +132,6 @@ try
                 UseJitter = true,
                 ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
             });
-
             builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
             {
                 SamplingDuration = TimeSpan.FromSeconds(60),
@@ -161,7 +140,6 @@ try
                 BreakDuration = TimeSpan.FromSeconds(30),
                 ShouldHandle = args => ValueTask.FromResult(ShouldRetry(args.Outcome))
             });
-
             builder.AddTimeout(TimeSpan.FromSeconds(30));
         });
 
@@ -183,25 +161,15 @@ try
             });
         });
 
-    // Register PutioClient with HttpClientFactory
-    builder.Services.AddSingleton<PutioClient>(sp =>
-    {
-        var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-        var httpClient = httpClientFactory.CreateClient(PutioClient.HttpClientName);
-        var logger = sp.GetRequiredService<ILogger<PutioClient>>();
-        return new PutioClient(config.Putio.ApiKey, httpClient, logger);
-    });
-
+    builder.Services.AddSingleton<IArrClientFactory, ArrClientFactory>();
     builder.Services.AddHostedService<DownloadManager>();
 
-    // Add controllers
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.PropertyNamingPolicy = null; // Preserve property names as-is
         });
 
-    // Configure Kestrel
     builder.WebHost.ConfigureKestrel(options =>
     {
         options.ListenAnyIP(config.Port);
@@ -209,7 +177,20 @@ try
 
     var app = builder.Build();
 
-    // Configure middleware
+    // Verify put.io API key on startup
+    try
+    {
+        Log.Information("Verifying put.io API key...");
+        var putioClient = app.Services.GetRequiredService<IPutioClient>();
+        await putioClient.GetAccountInfoAsync();
+        Log.Information("put.io API key verified successfully.");
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "Failed to verify put.io API key. Please check your configuration.");
+        return;
+    }
+
     app.UseSerilogRequestLogging(options =>
     {
         options.MessageTemplate = "{RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";

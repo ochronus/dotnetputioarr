@@ -1,26 +1,17 @@
 using System.Net.Http.Json;
-using Microsoft.Extensions.Logging;
 
 namespace Csharparr.Services;
 
 /// <summary>
 /// Client for interacting with Arr services (Sonarr/Radarr/Whisparr)
 /// </summary>
-public sealed class ArrClient : IDisposable
+public sealed class ArrClient
 {
-    public const string HttpClientName = "ArrClient";
-
     private readonly HttpClient _httpClient;
-    private readonly string _baseUrl;
-    private bool _disposed;
 
-    public ArrClient(string baseUrl, string apiKey) : this(baseUrl, apiKey, null) { }
-
-    public ArrClient(string baseUrl, string apiKey, HttpClient? httpClient)
+    public ArrClient(HttpClient httpClient)
     {
-        _baseUrl = baseUrl.TrimEnd('/');
-        _httpClient = httpClient ?? new HttpClient();
-        _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", apiKey);
+        _httpClient = httpClient;
     }
 
     /// <summary>
@@ -33,13 +24,13 @@ public sealed class ArrClient : IDisposable
 
         while (true)
         {
-            var url = $"{_baseUrl}/api/v3/history?includeSeries=false&includeEpisode=false&page={page}&pageSize=1000";
+            var url = $"api/v3/history?includeSeries=false&includeEpisode=false&page={page}&pageSize=1000";
             var response = await _httpClient.GetAsync(url, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-                throw new ArrClientException($"Error checking history from {_baseUrl}: {response.StatusCode}{errorBody}");
+                throw new ArrClientException($"Error checking history from {_httpClient.BaseAddress}: {response.StatusCode}{errorBody}");
             }
 
             var historyResponse = await response.Content.ReadFromJsonAsync<HistoryResponse>(cancellationToken: cancellationToken)
@@ -69,37 +60,6 @@ public sealed class ArrClient : IDisposable
     }
 
     /// <summary>
-    /// Checks if a file has been imported by any of the configured services
-    /// </summary>
-    public static async Task<(bool Imported, string? ServiceName)> CheckImportedMultiServiceAsync(
-        string targetPath,
-        IEnumerable<Configuration.ArrServiceInfo> services,
-        ILogger? logger = null,
-        CancellationToken cancellationToken = default)
-    {
-        foreach (var service in services)
-        {
-            try
-            {
-                using var client = new ArrClient(service.Url, service.ApiKey);
-                var imported = await client.CheckImportedAsync(targetPath, cancellationToken);
-                if (imported)
-                {
-                    return (true, service.Name);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger?.LogWarning(ex, "Failed to check import status from {ServiceName} at {ServiceUrl}",
-                    service.Name, service.Url);
-                continue;
-            }
-        }
-
-        return (false, null);
-    }
-
-    /// <summary>
     /// Attempts to read the error response body for better error messages
     /// </summary>
     private static async Task<string> TryReadErrorBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -122,14 +82,5 @@ public sealed class ArrClient : IDisposable
             // Ignore errors reading the body
         }
         return string.Empty;
-    }
-
-    public void Dispose()
-    {
-        if (!_disposed)
-        {
-            _httpClient.Dispose();
-            _disposed = true;
-        }
     }
 }
