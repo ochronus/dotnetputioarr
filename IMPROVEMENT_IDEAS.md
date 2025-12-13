@@ -211,16 +211,20 @@ Downloads run at maximum speed with no throttling option.
 
 ---
 
-### 17. Test Coverage Gaps
+### 17. ~~Test Coverage Gaps~~ ✅ DONE (v0.2.1)
 
-Current state:
-- Good model/unit tests ✓
-- Missing integration tests
-- No tests for `DownloadManager` (the most complex component)
+**Status:**
+- ✅ Integration tests added (`DependencyInjectionTests`) - 8 tests
+- ✅ `DownloadManager` unit tests added with mocked dependencies - 12 tests
+- ✅ `ArrClientFactory` exception handling tests added - 4 tests
+- ✅ Total test count increased from 190 → 210 tests
 
-**Fix:** 
-- Add integration tests with mocked HTTP responses
-- Add `DownloadManager` unit tests using mocked dependencies
+Tests now cover:
+- DI container resolution for all controllers
+- Concurrent request handling scenarios
+- DownloadManager target generation logic
+- DownloadManager seen tracking (thread-safe)
+- Exception handling with circuit breakers and network errors
 
 ---
 
@@ -233,4 +237,5 @@ Current state:
 5. ~~Add health check endpoint (#9)~~ ✅ DONE
 6. ~~Fix version handling (#7)~~ ✅ DONE
 7. ~~Refactor HttpClient usage (#5, #6)~~ ✅ DONE
-8. Everything else based on need
+8. ~~Add comprehensive test coverage (#17)~~ ✅ DONE
+9. Everything else based on need

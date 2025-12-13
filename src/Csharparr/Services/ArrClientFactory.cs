@@ -1,5 +1,7 @@
 using Csharparr.Configuration;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
+using System.Net.Sockets;
 
 namespace Csharparr.Services;
 
@@ -42,8 +44,23 @@ public class ArrClientFactory : IArrClientFactory
                     return (true, service.Name);
                 }
             }
+            catch (BrokenCircuitException)
+            {
+                // Circuit breaker is open - service is known to be down, no need for verbose logging
+                _logger.LogDebug("Circuit breaker open for {ServiceName} at {ServiceUrl}, skipping check",
+                    service.Name, service.Url);
+                continue;
+            }
+            catch (HttpRequestException ex) when (ex.InnerException is SocketException)
+            {
+                // Connection refused or network error - log concisely without full stack trace
+                _logger.LogWarning("Cannot connect to {ServiceName} at {ServiceUrl}: {ErrorMessage}",
+                    service.Name, service.Url, ex.InnerException.Message);
+                continue;
+            }
             catch (Exception ex)
             {
+                // Unexpected error - log with full details
                 _logger.LogWarning(ex, "Failed to check import status from {ServiceName} at {ServiceUrl}",
                     service.Name, service.Url);
                 continue;
