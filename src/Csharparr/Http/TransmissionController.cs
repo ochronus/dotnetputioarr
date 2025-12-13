@@ -18,7 +18,7 @@ public class TransmissionController : ControllerBase
     private const string SessionId = "useless-session-id";
 
     private readonly AppConfig _config;
-    private readonly PutioClient _putioClient;
+    private readonly IPutioClient _putioClient;
     private readonly ILogger<TransmissionController> _logger;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -29,7 +29,7 @@ public class TransmissionController : ControllerBase
 
     public TransmissionController(
         AppConfig config,
-        PutioClient putioClient,
+        IPutioClient putioClient,
         ILogger<TransmissionController> logger)
     {
         _config = config;

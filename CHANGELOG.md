@@ -5,7 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-12-13
+
+### Fixed
+
+- **Critical Bug**: Fixed `TransmissionController` dependency injection issue that caused intermittent 500 errors in production
+  - Controller was injecting concrete `PutioClient` type instead of `IPutioClient` interface
+  - This caused `System.InvalidOperationException: Unable to resolve service for type 'Csharparr.Services.PutioClient'`
+  - Error occurred randomly due to HttpClient scoped service lifetime and race conditions
+- Fixed `Startup.cs` to properly use `UseEndpoints()` for controller mapping
+
+### Added
+
+- **Integration Tests**: Added comprehensive DI container integration tests (`DependencyInjectionTests`)
+  - 8 new tests verify all controllers can be resolved from the DI container
+  - Tests include concurrent resolution scenarios to catch race conditions
+  - Would have caught the production bug before deployment
+  - Total test count increased from 190 to 198 tests
+
+### Changed
+
+- Updated `IMPROVEMENT_IDEAS.md` to mark improvements #5, #6, and #9 as completed (they were already implemented in v0.2.0)
+
 ## [0.2.0] - 2025-12-13
+
+### Added
+
+- **Health Check Endpoint**: New `/health` endpoint for container orchestrators (Docker, Kubernetes)
+  - Verifies Put.io API connectivity
+  - Checks all configured Arr services (Sonarr/Radarr/Whisparr) connectivity
+  - Tests download directory writability
+  - Returns HTTP 200 OK when healthy, HTTP 503 when any check fails
+  - Resolves improvement idea #9 (Health Check Endpoint)
 
 ### Changed
 

@@ -66,23 +66,23 @@ throw new PutioException($"Error getting put.io account info: {response.StatusCo
 
 ## 🟠 Medium Priority (Resource Management & Performance)
 
-### 5. HttpClient Management
+### 5. ~~HttpClient Management~~ ✅ DONE (v0.1.9)
 
 **Location:** `Services/PutioClient.cs`, `Program.cs`
 
-`PutioClient` is registered as a singleton but creates its own `HttpClient` internally. This bypasses proper socket management and can lead to socket exhaustion.
+`PutioClient` now uses `IHttpClientFactory` with typed client registration. Proper socket management implemented.
 
-**Fix:** Inject `IHttpClientFactory` and use named/typed clients.
+**Status:** `PutioClient` injects `HttpClient` via constructor and is registered with `AddHttpClient<IPutioClient, PutioClient>()` in `Program.cs`.
 
 ---
 
-### 6. ArrClient Created/Disposed in Loop
+### 6. ~~ArrClient Created/Disposed in Loop~~ ✅ DONE (v0.1.9)
 
-**Location:** `Services/ArrClient.cs` - `CheckImportedMultiServiceAsync`
+**Location:** `Services/ArrClientFactory.cs` - `CheckImportedMultiServiceAsync`
 
-A new `HttpClient` is created and disposed for each service in the loop. Inefficient and wasteful.
+`ArrClientFactory` now uses `IHttpClientFactory` to create pooled HTTP clients for each service check.
 
-**Fix:** Refactor to use pooled HTTP clients via `IHttpClientFactory`.
+**Status:** Uses `_httpClientFactory.CreateClient("ArrClient")` with proper client pooling.
 
 ---
 
@@ -115,14 +115,16 @@ The `uid` config option is documented, parsed, and stored but never actually use
 
 ## 🟡 Lower Priority (Features & Improvements)
 
-### 9. No Health Check Endpoint
+### 9. ~~Health Check Endpoint~~ ✅ DONE (v0.2.0)
 
-No way for container orchestrators (Docker, Kubernetes) to verify service health.
+**Location:** `Http/HealthController.cs`
 
-**Fix:** Add a `/health` endpoint that checks:
+Health check endpoint implemented at `/health` that verifies:
 - Put.io API connectivity
-- Arr service connectivity (optional)
+- Arr service connectivity (all configured services)
 - Download directory writability
+
+**Status:** Returns HTTP 200 OK when all checks pass, HTTP 503 Service Unavailable when any check fails.
 
 ---
 
@@ -228,7 +230,7 @@ Current state:
 2. ~~Fix fire-and-forget task tracking (#2)~~ ✅ DONE
 3. ~~Add retry logic with Polly (#3) - high impact~~ ✅ DONE
 4. ~~Add error response bodies (#4)~~ ✅ DONE
-5. Add health check endpoint (#9)
+5. ~~Add health check endpoint (#9)~~ ✅ DONE
 6. ~~Fix version handling (#7)~~ ✅ DONE
-7. Refactor HttpClient usage (#5, #6) - partially done via Polly integration
+7. ~~Refactor HttpClient usage (#5, #6)~~ ✅ DONE
 8. Everything else based on need
