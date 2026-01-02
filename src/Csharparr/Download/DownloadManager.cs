@@ -356,6 +356,14 @@ public sealed class DownloadManager : BackgroundService
                 break;
 
             case "VIDEO":
+            case "TEXT":
+            case "FILE":
+                if (!IsSubtitle(response.Parent.Name) && !string.Equals(response.Parent.FileType, "VIDEO", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Only treat TEXT/FILE as targets when they look like subtitle files
+                    break;
+                }
+
                 var url = await _putioClient.GetFileUrlAsync(response.Parent.Id, cancellationToken);
                 targets.Add(new DownloadTarget(
                     To: to,
@@ -368,6 +376,12 @@ public sealed class DownloadManager : BackgroundService
         }
 
         return targets;
+    }
+
+    private static bool IsSubtitle(string name)
+    {
+        var ext = Path.GetExtension(name).ToLowerInvariant();
+        return ext is ".srt" or ".sub" or ".vtt" or ".ssa" or ".ass";
     }
 
     private async Task WatchForImportAsync(Transfer transfer, CancellationToken cancellationToken)

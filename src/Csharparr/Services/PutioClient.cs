@@ -54,19 +54,14 @@ public sealed class PutioClient : IPutioClient
     }
 
     /// <summary>
-    /// Lists all transfers, optionally filtering by source
+    /// Lists all transfers, optionally filtering by source (instance name). The API response may omit the
+    /// source field even when a source query parameter is supplied, so we fetch all and filter locally.
     /// </summary>
     public async Task<IReadOnlyList<PutioTransfer>> ListTransfersAsync(string? source = null, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Listing transfers from put.io{Source}", source is null ? string.Empty : $" for source {source}");
 
-        var url = $"{BaseUrl}/transfers/list";
-        if (!string.IsNullOrEmpty(source))
-        {
-            url += $"?source={Uri.EscapeDataString(source)}";
-        }
-
-        var response = await _httpClient.GetAsync(url, cancellationToken);
+        var response = await _httpClient.GetAsync($"{BaseUrl}/transfers/list", cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -77,7 +72,7 @@ public sealed class PutioClient : IPutioClient
         var result = await response.Content.ReadFromJsonAsync<ListTransferResponse>(JsonOptions, cancellationToken)
             ?? throw new PutioException("Failed to deserialize transfer list response");
 
-        if (string.IsNullOrEmpty(source))
+        if (string.IsNullOrWhiteSpace(source))
         {
             return result.Transfers;
         }

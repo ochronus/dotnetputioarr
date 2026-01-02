@@ -346,7 +346,6 @@ public class DownloadManagerGetDownloadTargetsTests
             _mockArrClientFactory.Object,
             _mockLogger.Object,
             _mockHttpClientFactory.Object);
-
         // Act - use reflection to call private method
         var method = typeof(DownloadManager).GetMethod("GetDownloadTargetsAsync",
             BindingFlags.NonPublic | BindingFlags.Instance);
@@ -358,6 +357,69 @@ public class DownloadManagerGetDownloadTargetsTests
         targets.Should().HaveCount(2);
         targets.Should().Contain(t => t.TargetType == TargetType.Directory && t.To == "/downloads/instance");
         targets.Should().Contain(t => t.TargetType == TargetType.File && t.From == "https://example.com/download/movie.mkv" && t.To == "/downloads/instance/movie.mkv");
+    }
+
+    [Fact]
+    public async Task GetDownloadTargets_WithSubtitle_ShouldReturnSubtitleFile()
+    {
+        var putioTransfer = new PutioTransfer(
+            Id: 1,
+            Hash: "hash",
+            Name: _config.InstanceName,
+            FileId: 100,
+            Status: "COMPLETED");
+
+        var transfer = new Transfer(_config, putioTransfer);
+
+        var instanceFolder = new ListFileResponse(
+            Parent: new PutioFileInfo(
+                Id: 100,
+                Name: _config.InstanceName,
+                FileType: "FOLDER"
+            ),
+            Files: new List<PutioFileInfo>
+            {
+                new PutioFileInfo(Id: 101, Name: "episode1.srt", FileType: "TEXT")
+            }
+        );
+
+        var subtitleFile = new ListFileResponse(
+            Parent: new PutioFileInfo(
+                Id: 101,
+                Name: "episode1.srt",
+                FileType: "TEXT"
+            ),
+            Files: new List<PutioFileInfo>()
+        );
+
+        _mockPutioClient
+            .Setup(x => x.ListFilesAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instanceFolder);
+
+        _mockPutioClient
+            .Setup(x => x.ListFilesAsync(101, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(subtitleFile);
+
+        _mockPutioClient
+            .Setup(x => x.GetFileUrlAsync(101, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("https://example.com/episode1.srt");
+
+        var manager = new DownloadManager(
+            _config,
+            _mockPutioClient.Object,
+            _mockArrClientFactory.Object,
+            _mockLogger.Object,
+            _mockHttpClientFactory.Object);
+
+        var method = typeof(DownloadManager).GetMethod("GetDownloadTargetsAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        var task = (Task<List<DownloadTarget>>)method!.Invoke(manager,
+            new object[] { transfer, CancellationToken.None })!;
+        var targets = await task;
+
+        targets.Should().HaveCount(2);
+        targets.Should().Contain(t => t.TargetType == TargetType.Directory && t.To == "/downloads/instance");
+        targets.Should().Contain(t => t.TargetType == TargetType.File && t.To == "/downloads/instance/episode1.srt");
     }
 
     [Fact]
