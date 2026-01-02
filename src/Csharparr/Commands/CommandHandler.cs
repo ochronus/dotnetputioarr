@@ -1,6 +1,8 @@
 using System.CommandLine;
 using System.CommandLine.Parsing;
+using System.Net.Http.Headers;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Csharparr.Configuration;
 using Csharparr.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -58,6 +60,55 @@ public static class CommandHandler
             await GenerateConfigAsync(configPath, cancellationToken);
         });
 
+        // Create-instance-folder command
+        var createInstanceFolderCommand = new Command("create-instance-folder", "Create the instance folder on put.io and print its ID");
+        createInstanceFolderCommand.Add(configOption);
+        createInstanceFolderCommand.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var configPath = parseResult.GetValue(configOption) ?? AppConfig.DefaultConfigPath;
+
+            if (!File.Exists(configPath))
+            {
+                Console.Error.WriteLine($"Configuration file not found: {configPath}");
+                Console.Error.WriteLine("Run 'csharparr generate-config' to create one.");
+                return;
+            }
+
+            var config = AppConfig.Load(configPath);
+
+            if (string.IsNullOrWhiteSpace(config.InstanceName))
+            {
+                Console.Error.WriteLine("instance_name is required in the config file.");
+                return;
+            }
+
+            if (!Regex.IsMatch(config.InstanceName, "^[A-Za-z0-9]{3,10}$"))
+            {
+                Console.Error.WriteLine("instance_name must be alphanumeric and 3-10 characters long.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.Putio.ApiKey))
+            {
+                Console.Error.WriteLine("putio.api_key is required in the config file.");
+                return;
+            }
+
+            var result = await CreateInstanceFolderAsync(config.InstanceName, config.Putio.ApiKey, cancellationToken);
+
+            if (result.Created)
+            {
+                Console.WriteLine($"Created instance folder '{config.InstanceName}' with ID: {result.Id}");
+            }
+            else
+            {
+                Console.WriteLine($"Instance folder '{config.InstanceName}' already exists with ID: {result.Id}");
+            }
+
+            Console.WriteLine("Add this to your config file under the top level:");
+            Console.WriteLine($"instance_folder_id = {result.Id}");
+        });
+
         // Version command
         var versionCommand = new Command("version", "Print the version number");
         versionCommand.SetAction((parseResult) =>
@@ -68,6 +119,7 @@ public static class CommandHandler
         rootCommand.Add(runCommand);
         rootCommand.Add(getTokenCommand);
         rootCommand.Add(generateConfigCommand);
+        rootCommand.Add(createInstanceFolderCommand);
         rootCommand.Add(versionCommand);
 
         return rootCommand;
@@ -125,7 +177,7 @@ public static class CommandHandler
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to get OOB code: {ex.Message}");
+            await Console.Error.WriteLineAsync($"Failed to get OOB code: {ex.Message}");
             throw;
         }
 
@@ -168,6 +220,9 @@ public static class CommandHandler
 
             # Required. Alphanumeric (3-10 chars) instance name. Transfers are scoped to this name and files go into this folder.
             instance_name = "myinstance"
+
+            # Required. Folder ID for this instance on put.io. Run 'csharparr create-instance-folder' to create one.
+            instance_folder_id = 0
 
             # Required. Directory where the proxy will download files to. This directory has to be readable by
             # sonarr/radarr in order to import downloads
@@ -241,4 +296,47 @@ public static class CommandHandler
         Console.WriteLine("Configuration file generated successfully.");
         Console.WriteLine("Please edit the file to configure username, password, download directory, and arr services.");
     }
+
+    /// <summary>
+    /// Creates (or reuses) the instance folder on put.io and returns its ID.
+    /// </summary>
+    public static async Task<InstanceFolderResult> CreateInstanceFolderAsync(
+        string instanceName,
+        string apiKey,
+        CancellationToken cancellationToken,
+        IPutioClient? client = null)
+    {
+        if (string.IsNullOrWhiteSpace(instanceName))
+            throw new ArgumentException("instanceName is required", nameof(instanceName));
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new ArgumentException("apiKey is required", nameof(apiKey));
+
+        IPutioClient putioClient;
+
+        if (client is null)
+        {
+            var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            putioClient = new PutioClient(httpClient, NullLogger<PutioClient>.Instance);
+        }
+        else
+        {
+            putioClient = client;
+        }
+
+        var root = await putioClient.ListFilesAsync(0, cancellationToken);
+        var existing = root.Files.FirstOrDefault(f =>
+            string.Equals(f.Name, instanceName, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+        {
+            return new InstanceFolderResult(existing.Id, Created: false);
+        }
+
+        var created = await putioClient.CreateFolderAsync(instanceName, 0, cancellationToken);
+        return new InstanceFolderResult(created.Id, Created: true);
+    }
 }
+
+public readonly record struct InstanceFolderResult(long Id, bool Created);

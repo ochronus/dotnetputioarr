@@ -22,6 +22,7 @@ public sealed class AppConfig
     public int Uid { get; set; } = 1000;
     public string Username { get; set; } = string.Empty;
     public string InstanceName { get; set; } = string.Empty;
+    public long InstanceFolderId { get; set; }
     public PutioConfig Putio { get; set; } = new();
     public ArrConfig? Sonarr { get; set; }
     public ArrConfig? Radarr { get; set; }
@@ -86,6 +87,9 @@ public sealed class AppConfig
 
         if (tomlTable.TryGetValue("instance_name", out var instanceName))
             config.InstanceName = instanceName?.ToString() ?? config.InstanceName;
+
+        if (tomlTable.TryGetValue("instance_folder_id", out var instanceFolderId))
+            config.InstanceFolderId = Convert.ToInt64(instanceFolderId);
 
         if (tomlTable.TryGetValue("skip_directories", out var skipDirs) && skipDirs is TomlArray skipArray)
         {
@@ -154,6 +158,9 @@ public sealed class AppConfig
             errors.Add("instance_name is required");
         else if (!Regex.IsMatch(InstanceName, "^[A-Za-z0-9]{3,10}$"))
             errors.Add("instance_name must be alphanumeric and 3-10 characters long");
+
+        if (InstanceFolderId <= 0)
+            errors.Add("instance_folder_id is required and must be a positive integer");
 
         if (string.IsNullOrWhiteSpace(Password))
             errors.Add("password is required");

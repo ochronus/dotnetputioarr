@@ -290,6 +290,7 @@ public class DownloadManagerGetDownloadTargetsTests
             DownloadWorkers = 1,
             PollingInterval = 1,
             InstanceName = "instance",
+            InstanceFolderId = 100,
             SkipDirectories = new List<string>()
         };
     }

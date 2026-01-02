@@ -179,6 +179,30 @@ public class PutioClientTests
     }
 
     [Fact]
+    public void PutioTransfer_Deserialization_WithSaveParentId()
+    {
+        var json = """
+            {
+                "id": 6,
+                "status": "COMPLETED",
+                "file_id": 11,
+                "save_parent_id": 9999
+            }
+            """;
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            PropertyNameCaseInsensitive = true
+        };
+
+        var transfer = JsonSerializer.Deserialize<PutioTransfer>(json, options);
+
+        transfer.Should().NotBeNull();
+        transfer!.SaveParentId.Should().Be(9999);
+    }
+
+    [Fact]
     public void AccountInfo_Deserialization()
     {
         var json = """

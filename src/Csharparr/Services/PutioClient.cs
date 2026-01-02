@@ -54,12 +54,15 @@ public sealed class PutioClient : IPutioClient
     }
 
     /// <summary>
-    /// Lists all transfers, optionally filtering by source (instance name). The API response may omit the
-    /// source field even when a source query parameter is supplied, so we fetch all and filter locally.
+    /// Lists all transfers, optionally filtering by source (instance name) or parent folder. The API response may omit the
+    /// source field even when a source query parameter is supplied, so we fetch all and filter locally. Parent filtering
+    /// uses save_parent_id to scope to the configured instance folder.
     /// </summary>
-    public async Task<IReadOnlyList<PutioTransfer>> ListTransfersAsync(string? source = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PutioTransfer>> ListTransfersAsync(string? source = null, long? parentId = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Listing transfers from put.io{Source}", source is null ? string.Empty : $" for source {source}");
+        _logger.LogDebug("Listing transfers from put.io{Source}{Parent}",
+            source is null ? string.Empty : $" for source {source}",
+            parentId is null ? string.Empty : $" in parent {parentId}");
 
         var response = await _httpClient.GetAsync($"{BaseUrl}/transfers/list", cancellationToken);
 
@@ -72,14 +75,19 @@ public sealed class PutioClient : IPutioClient
         var result = await response.Content.ReadFromJsonAsync<ListTransferResponse>(JsonOptions, cancellationToken)
             ?? throw new PutioException("Failed to deserialize transfer list response");
 
-        if (string.IsNullOrWhiteSpace(source))
+        var filtered = result.Transfers.AsEnumerable();
+
+        if (parentId.HasValue)
         {
-            return result.Transfers;
+            filtered = filtered.Where(t => t.SaveParentId == parentId.Value);
         }
 
-        return result.Transfers
-            .Where(t => string.Equals(t.Source, source, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        if (!string.IsNullOrWhiteSpace(source))
+        {
+            filtered = filtered.Where(t => string.Equals(t.Source, source, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return filtered.ToList();
     }
 
     /// <summary>
@@ -272,7 +280,7 @@ public sealed class PutioClient : IPutioClient
     /// </summary>
     public async Task<string> GetOobCodeAsync(CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.GetAsync("https://api.put.io/v2/oauth2/oob/code?app_id=6487", cancellationToken);
+        var response = await _httpClient.GetAsync($"{BaseUrl}/oauth2/oob/code?app_id=6487", cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -296,7 +304,7 @@ public sealed class PutioClient : IPutioClient
     /// </summary>
     public async Task<string> CheckOobAsync(string oobCode, CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.GetAsync($"https://api.put.io/v2/oauth2/oob/code/{oobCode}", cancellationToken);
+        var response = await _httpClient.GetAsync($"{BaseUrl}/oauth2/oob/code/{oobCode}", cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {

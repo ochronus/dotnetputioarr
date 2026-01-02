@@ -39,6 +39,7 @@ public class AppConfigTests
                 orchestration_workers = 5
                 download_workers = 2
                 instance_name = "myinst1"
+                instance_folder_id = 12345
 
                 [putio]
                 api_key = "test-api-key"
@@ -68,6 +69,7 @@ public class AppConfigTests
             config.DownloadWorkers.Should().Be(2);
             config.Putio.ApiKey.Should().Be("test-api-key");
             config.InstanceName.Should().Be("myinst1");
+            config.InstanceFolderId.Should().Be(12345);
             config.Sonarr.Should().NotBeNull();
             config.Sonarr!.Url.Should().Be("http://localhost:8989");
             config.Sonarr.ApiKey.Should().Be("sonarr-key");
@@ -96,6 +98,7 @@ public class AppConfigTests
         {
             Username = "user",
             InstanceName = "abc123",
+            InstanceFolderId = 42,
             Password = "pass",
             DownloadDirectory = "/downloads",
             Putio = new PutioConfig("key"),
@@ -113,6 +116,7 @@ public class AppConfigTests
         var config = new AppConfig
         {
             InstanceName = "abc123",
+            InstanceFolderId = 42,
             Password = "pass",
             DownloadDirectory = "/downloads",
             Putio = new PutioConfig("key"),
@@ -132,6 +136,7 @@ public class AppConfigTests
         {
             Username = "user",
             InstanceName = "abc123",
+            InstanceFolderId = 42,
             DownloadDirectory = "/downloads",
             Putio = new PutioConfig("key"),
             Sonarr = new ArrConfig("http://localhost", "key")
@@ -151,6 +156,7 @@ public class AppConfigTests
             Username = "user",
             InstanceName = "abc123",
             Password = "pass",
+            InstanceFolderId = 42,
             Putio = new PutioConfig("key"),
             Sonarr = new ArrConfig("http://localhost", "key")
         };
@@ -170,6 +176,7 @@ public class AppConfigTests
             InstanceName = "abc123",
             Password = "pass",
             DownloadDirectory = "/downloads",
+            InstanceFolderId = 42,
             Sonarr = new ArrConfig("http://localhost", "key")
         };
 
@@ -210,6 +217,7 @@ public class AppConfigTests
             InstanceName = "abc123",
             Password = "pass",
             DownloadDirectory = "/downloads",
+            InstanceFolderId = 42,
             Putio = new PutioConfig("key")
         };
 
@@ -284,6 +292,7 @@ public class AppConfigTests
                 password = "pass"
                 download_directory = "/downloads"
                 instance_name = "abc123"
+                   instance_folder_id = 42
 
                 [putio]
                 api_key = "key"
@@ -299,6 +308,7 @@ public class AppConfigTests
 
             // Explicitly set values
             config.Username.Should().Be("user");
+            config.InstanceFolderId.Should().Be(42);
 
             // Default values should be preserved
             config.BindAddress.Should().Be("0.0.0.0");
@@ -336,5 +346,46 @@ public class AppConfigTests
         info.Name.Should().Be("TestService");
         info.Url.Should().Be("http://test");
         info.ApiKey.Should().Be("test-key");
+    }
+
+    [Fact]
+    public void Validate_WithMissingInstanceFolderId_ShouldThrow()
+    {
+        var config = new AppConfig
+        {
+            Username = "user",
+            InstanceName = "abc123",
+            Password = "pass",
+            DownloadDirectory = "/downloads",
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://localhost", "key")
+        };
+
+        var action = () => config.Validate();
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*instance_folder_id is required and must be a positive integer*");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void Validate_WithNonPositiveInstanceFolderId_ShouldThrow(long folderId)
+    {
+        var config = new AppConfig
+        {
+            Username = "user",
+            InstanceName = "abc123",
+            InstanceFolderId = folderId,
+            Password = "pass",
+            DownloadDirectory = "/downloads",
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://localhost", "key")
+        };
+
+        var action = () => config.Validate();
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*instance_folder_id is required and must be a positive integer*");
     }
 }

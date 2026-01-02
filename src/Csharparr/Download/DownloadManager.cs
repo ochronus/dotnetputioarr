@@ -320,9 +320,9 @@ public sealed class DownloadManager : BackgroundService
         var response = await _putioClient.ListFilesAsync(fileId, cancellationToken);
         var to = Path.Combine(basePath, response.Parent.Name);
 
-        if (topLevel && !string.Equals(response.Parent.Name, _config.InstanceName, StringComparison.OrdinalIgnoreCase))
+        if (topLevel && response.Parent.Id != _config.InstanceFolderId)
         {
-            _logger.LogWarning("{Hash}: parent folder {Parent} does not match instance {Instance}", hash, response.Parent.Name, _config.InstanceName);
+            _logger.LogWarning("{Hash}: parent folder id {Parent} does not match configured {Configured}", hash, response.Parent.Id, _config.InstanceFolderId);
             return targets;
         }
 
@@ -521,7 +521,7 @@ public sealed class DownloadManager : BackgroundService
         {
             try
             {
-                var transfers = await _putioClient.ListTransfersAsync(_config.InstanceName, cancellationToken);
+                var transfers = await _putioClient.ListTransfersAsync(parentId: _config.InstanceFolderId, cancellationToken: cancellationToken);
 
                 foreach (var pt in transfers)
                 {
@@ -569,7 +569,7 @@ public sealed class DownloadManager : BackgroundService
 
         try
         {
-            var transfers = await _putioClient.ListTransfersAsync(_config.InstanceName, cancellationToken);
+            var transfers = await _putioClient.ListTransfersAsync(parentId: _config.InstanceFolderId, cancellationToken: cancellationToken);
 
             foreach (var pt in transfers)
             {

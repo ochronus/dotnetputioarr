@@ -39,6 +39,7 @@ public sealed record PutioTransfer(
     string? StartedAt = null,
     string? ErrorMessage = null,
     long? FileId = null,
+    long? SaveParentId = null,
     string? Source = null,
     bool UserfileExists = false
 )

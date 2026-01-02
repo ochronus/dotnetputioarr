@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-01-02
+
+### Changed
+
+- `create-instance-folder` now reports when the folder already exists and still prints its ID for config use.
+- Added tests for instance folder creation helper.
+
+## [0.3.2] - 2026-01-02
+
+### Added
+
+- `create-instance-folder` CLI command to create the instance folder on put.io (based on `instance_name`) and print its ID.
+
+### Changed
+
+- Configuration now requires `instance_folder_id` to scope transfers and downloads by folder ID (using `save_parent_id`).
+- Transfers are filtered by `save_parent_id` instead of `source` to avoid collisions with torrent source strings.
+
 ## [0.3.1] - 2026-01-02
 
 ### Added

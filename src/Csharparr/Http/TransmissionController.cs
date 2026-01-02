@@ -22,8 +22,6 @@ public class TransmissionController : ControllerBase
     private readonly AppConfig _config;
     private readonly IPutioClient _putioClient;
     private readonly ILogger<TransmissionController> _logger;
-    private readonly SemaphoreSlim _instanceFolderLock = new(1, 1);
-    private long? _instanceFolderId;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -85,7 +83,7 @@ public class TransmissionController : ControllerBase
         }
         catch (InvalidOperationException ex) when (ex.Message.StartsWith("Unknown method:"))
         {
-            _logger.LogWarning("Unknown method: {Method}", request.Method);
+            _logger.LogWarning(ex, "Unknown method: {Method}", request.Method);
             return BadRequest(new { error = "unknown method" });
         }
         catch (Exception ex)
@@ -97,7 +95,7 @@ public class TransmissionController : ControllerBase
 
     private async Task<TorrentGetResponse> HandleTorrentGetAsync(CancellationToken cancellationToken)
     {
-        var transfers = await _putioClient.ListTransfersAsync(_config.InstanceName, cancellationToken);
+        var transfers = await _putioClient.ListTransfersAsync(parentId: _config.InstanceFolderId, cancellationToken: cancellationToken);
 
         var torrents = transfers
             .Select(t => TransmissionTorrent.FromPutioTransfer(t, _config.DownloadDirectory))
@@ -121,19 +119,17 @@ public class TransmissionController : ControllerBase
             return null;
         }
 
-        var parentId = await EnsureInstanceFolderAsync(cancellationToken);
-
         if (!string.IsNullOrEmpty(args.Metainfo))
         {
             // .torrent file encoded as base64
             var data = Convert.FromBase64String(args.Metainfo);
-            await _putioClient.UploadFileAsync(data, _config.InstanceName, parentId, cancellationToken);
+            await _putioClient.UploadFileAsync(data, _config.InstanceName, _config.InstanceFolderId, cancellationToken);
             _logger.LogInformation("[ffff: unknown]: torrent uploaded");
         }
         else if (!string.IsNullOrEmpty(args.Filename))
         {
             // Magnet link
-            await _putioClient.AddTransferAsync(args.Filename, _config.InstanceName, parentId, cancellationToken);
+            await _putioClient.AddTransferAsync(args.Filename, _config.InstanceName, _config.InstanceFolderId, cancellationToken);
 
             // Try to extract name from magnet link
             var name = "unknown";
@@ -177,7 +173,7 @@ public class TransmissionController : ControllerBase
         }
 
         // Get all transfers to match by hash
-        var transfers = await _putioClient.ListTransfersAsync(_config.InstanceName, cancellationToken);
+        var transfers = await _putioClient.ListTransfersAsync(parentId: _config.InstanceFolderId, cancellationToken: cancellationToken);
 
         // Build a set of hashes to remove
         var hashSet = args.Ids.ToHashSet();
@@ -217,45 +213,6 @@ public class TransmissionController : ControllerBase
         }
 
         return null;
-    }
-
-    private async Task<long> EnsureInstanceFolderAsync(CancellationToken cancellationToken)
-    {
-        if (_instanceFolderId.HasValue)
-        {
-            return _instanceFolderId.Value;
-        }
-
-        await _instanceFolderLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (_instanceFolderId.HasValue)
-            {
-                return _instanceFolderId.Value;
-            }
-
-            var root = await _putioClient.ListFilesAsync(0, cancellationToken);
-            var existing = root.Files.FirstOrDefault(f =>
-                string.Equals(f.Name, _config.InstanceName, StringComparison.OrdinalIgnoreCase));
-
-            long folderId;
-            if (existing is not null)
-            {
-                folderId = existing.Id;
-            }
-            else
-            {
-                var created = await _putioClient.CreateFolderAsync(_config.InstanceName, 0, cancellationToken);
-                folderId = created.Id;
-            }
-
-            _instanceFolderId = folderId;
-            return folderId;
-        }
-        finally
-        {
-            _instanceFolderLock.Release();
-        }
     }
 
     private bool ValidateUser()

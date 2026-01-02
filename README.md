@@ -94,9 +94,12 @@ csharparr version
 2. Follow the prompts to authenticate with put.io
 3. Edit the generated config file to set:
    - `username` and `password` for the proxy
-  - `instance_name` to tag transfers and the folder they live in on put.io (3-10 alphanumeric chars)
-   - `download_directory` for where files should be downloaded
-   - Sonarr/Radarr/Whisparr connection details
+
+- `instance_name` to tag transfers and the folder they live in on put.io (3-10 alphanumeric chars)
+  - Run `csharparr create-instance-folder -c /path/to/config.toml` to create the put.io folder for this instance and copy the printed `instance_folder_id` into your config
+- `download_directory` for where files should be downloaded
+- Sonarr/Radarr/Whisparr connection details
+
 4. Run `csharparr run` to start the proxy
 5. Configure the Transmission download client in sonarr/radarr/whisparr:
    - Host: Your csharparr host
@@ -108,6 +111,7 @@ csharparr version
 ## Configuration
 
 A configuration file can be specified using `-c`, but the default configuration file location is:
+
 - Linux/macOS: `~/.config/putioarr/config.toml`
 
 TOML is used as the configuration format:
@@ -120,6 +124,10 @@ password = "mypassword"
 # Required. Alphanumeric (3-10 chars). Transfers are tagged with this value and saved under a folder of
 # the same name on put.io.
 instance_name = "myinstance"
+
+# Required. Numeric folder ID for this instance on put.io. Run `csharparr create-instance-folder -c /path/to/config.toml`
+# to create the folder and then paste the printed ID here.
+instance_folder_id = 0
 
 # Required. Directory where the proxy will download files to. This directory has to be readable by
 # sonarr/radarr/whisparr in order to import downloads
@@ -174,6 +182,7 @@ api_key = "MYWHISPARRAPIKEY"
 ## Behavior
 
 The proxy will:
+
 1. Upload torrents or magnet links to put.io
 2. Monitor transfers for completion
 3. Download completed files to the specified download directory

@@ -3,7 +3,7 @@ namespace Csharparr.Services;
 public interface IPutioClient
 {
     Task<AccountInfo> GetAccountInfoAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<PutioTransfer>> ListTransfersAsync(string? source = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PutioTransfer>> ListTransfersAsync(string? source = null, long? parentId = null, CancellationToken cancellationToken = default);
     Task<PutioTransfer> GetTransferAsync(ulong transferId, CancellationToken cancellationToken = default);
     Task RemoveTransferAsync(ulong transferId, CancellationToken cancellationToken = default);
     Task DeleteFileAsync(long fileId, CancellationToken cancellationToken = default);

@@ -21,6 +21,8 @@ public class DependencyInjectionTests
         DownloadDirectory = "/downloads",
         Putio = new PutioConfig("test-api-key"),
         Sonarr = new ArrConfig("http://sonarr", "key"),
+        InstanceName = "testinst",
+        InstanceFolderId = 1,
         Port = 9091,
         BindAddress = "0.0.0.0",
         Loglevel = "info"
