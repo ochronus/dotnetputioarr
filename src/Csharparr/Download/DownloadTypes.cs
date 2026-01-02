@@ -48,6 +48,7 @@ public sealed class Transfer
     public string? Hash { get; }
     public ulong TransferId { get; }
     public AppConfig Config { get; }
+    public long? SaveParentId { get; }
 
     public Transfer(AppConfig config, PutioTransfer transfer)
     {
@@ -56,6 +57,7 @@ public sealed class Transfer
         Name = transfer.Name ?? "Unknown";
         FileId = transfer.FileId;
         Hash = transfer.Hash;
+        SaveParentId = transfer.SaveParentId;
     }
 
     /// <summary>

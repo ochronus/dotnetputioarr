@@ -304,7 +304,8 @@ public class DownloadManagerGetDownloadTargetsTests
             Hash: "abc123",
             Name: "movie.mkv",
             FileId: 100,
-            Status: "COMPLETED");
+            Status: "COMPLETED",
+            SaveParentId: _config.InstanceFolderId);
 
         var transfer = new Transfer(_config, putioTransfer);
 
@@ -368,7 +369,8 @@ public class DownloadManagerGetDownloadTargetsTests
             Hash: "hash",
             Name: _config.InstanceName,
             FileId: 100,
-            Status: "COMPLETED");
+            Status: "COMPLETED",
+            SaveParentId: _config.InstanceFolderId);
 
         var transfer = new Transfer(_config, putioTransfer);
 
@@ -432,7 +434,8 @@ public class DownloadManagerGetDownloadTargetsTests
             Hash: "abc123",
             Name: "Season 1",
             FileId: 100,
-            Status: "COMPLETED");
+            Status: "COMPLETED",
+            SaveParentId: _config.InstanceFolderId);
 
         var transfer = new Transfer(_config, putioTransfer);
 
@@ -536,7 +539,8 @@ public class DownloadManagerGetDownloadTargetsTests
             Hash: "abc123",
             Name: "Sample",
             FileId: 100,
-            Status: "COMPLETED");
+            Status: "COMPLETED",
+            SaveParentId: _config.InstanceFolderId);
 
         var transfer = new Transfer(_config, putioTransfer);
 
@@ -588,6 +592,129 @@ public class DownloadManagerGetDownloadTargetsTests
 
         // Assert
         targets.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDownloadTargets_WithNestedFolderUnderInstance_ShouldReturnTargets()
+    {
+        // Arrange
+        _config.InstanceFolderId = 42;
+        _config.InstanceName = "instance";
+
+        var putioTransfer = new PutioTransfer(
+            Id: 321,
+            Hash: "nested",
+            Name: "Show S01",
+            FileId: 200,
+            Status: "COMPLETED",
+            SaveParentId: 42);
+
+        var transfer = new Transfer(_config, putioTransfer);
+
+        var torrentFolder = new ListFileResponse(
+            Parent: new PutioFileInfo(
+                Id: 200,
+                Name: "Show S01",
+                FileType: "FOLDER"
+            ),
+            Files: new List<PutioFileInfo>
+            {
+                new PutioFileInfo(Id: 201, Name: "episode1.mkv", FileType: "VIDEO")
+            }
+        );
+
+        var videoResponse = new ListFileResponse(
+            Parent: new PutioFileInfo(
+                Id: 201,
+                Name: "episode1.mkv",
+                FileType: "VIDEO"
+            ),
+            Files: new List<PutioFileInfo>()
+        );
+
+        _mockPutioClient
+            .Setup(x => x.ListFilesAsync(200, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(torrentFolder);
+
+        _mockPutioClient
+            .Setup(x => x.ListFilesAsync(201, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(videoResponse);
+
+        _mockPutioClient
+            .Setup(x => x.GetFileUrlAsync(201, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("https://example.com/episode1.mkv");
+
+        var manager = new DownloadManager(
+            _config,
+            _mockPutioClient.Object,
+            _mockArrClientFactory.Object,
+            _mockLogger.Object,
+            _mockHttpClientFactory.Object);
+
+        var method = typeof(DownloadManager).GetMethod("GetDownloadTargetsAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        var task = (Task<List<DownloadTarget>>)method!.Invoke(manager,
+            new object[] { transfer, CancellationToken.None })!;
+        var targets = await task;
+
+        targets.Should().HaveCount(2);
+        targets.Should().Contain(t => t.TargetType == TargetType.Directory && t.To == "/downloads/instance/Show S01");
+        targets.Should().Contain(t => t.TargetType == TargetType.File && t.To == "/downloads/instance/Show S01/episode1.mkv");
+    }
+
+    [Fact]
+    public async Task GetDownloadTargets_WithMismatchedSaveParent_ShouldReturnEmptyAndWarn()
+    {
+        // Arrange
+        _config.InstanceFolderId = 100;
+        _config.InstanceName = "instance";
+
+        var putioTransfer = new PutioTransfer(
+            Id: 555,
+            Hash: "warn",
+            Name: "movie.mkv",
+            FileId: 100,
+            Status: "COMPLETED",
+            SaveParentId: 999);
+
+        var transfer = new Transfer(_config, putioTransfer);
+
+        var instanceFolder = new ListFileResponse(
+            Parent: new PutioFileInfo(
+                Id: 100,
+                Name: _config.InstanceName,
+                FileType: "FOLDER"
+            ),
+            Files: new List<PutioFileInfo>()
+        );
+
+        _mockPutioClient
+            .Setup(x => x.ListFilesAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instanceFolder);
+
+        var manager = new DownloadManager(
+            _config,
+            _mockPutioClient.Object,
+            _mockArrClientFactory.Object,
+            _mockLogger.Object,
+            _mockHttpClientFactory.Object);
+
+        var method = typeof(DownloadManager).GetMethod("GetDownloadTargetsAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        var task = (Task<List<DownloadTarget>>)method!.Invoke(manager,
+            new object[] { transfer, CancellationToken.None })!;
+        var targets = await task;
+
+        targets.Should().BeEmpty();
+
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("save_parent_id")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 
     [Fact]

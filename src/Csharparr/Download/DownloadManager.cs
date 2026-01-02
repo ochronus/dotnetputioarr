@@ -301,7 +301,13 @@ public sealed class DownloadManager : BackgroundService
             return [];
         }
 
-        return await RecurseDownloadTargetsAsync(transfer.FileId.Value, transfer.GetHash(), "", true, cancellationToken);
+        return await RecurseDownloadTargetsAsync(
+            transfer.FileId.Value,
+            transfer.GetHash(),
+            "",
+            true,
+            transfer.SaveParentId,
+            cancellationToken);
     }
 
     private async Task<List<DownloadTarget>> RecurseDownloadTargetsAsync(
@@ -309,6 +315,7 @@ public sealed class DownloadManager : BackgroundService
         string hash,
         string basePath,
         bool topLevel,
+        long? saveParentId,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(basePath))
@@ -318,13 +325,34 @@ public sealed class DownloadManager : BackgroundService
 
         var targets = new List<DownloadTarget>();
         var response = await _putioClient.ListFilesAsync(fileId, cancellationToken);
-        var to = Path.Combine(basePath, response.Parent.Name);
+        string to;
 
-        if (topLevel && response.Parent.Id != _config.InstanceFolderId)
+        if (topLevel)
         {
-            _logger.LogWarning("{Hash}: parent folder id {Parent} does not match configured {Configured}", hash, response.Parent.Id, _config.InstanceFolderId);
-            return targets;
+            if (saveParentId.HasValue && saveParentId != _config.InstanceFolderId)
+            {
+                _logger.LogWarning("{Hash}: save_parent_id {Parent} does not match configured {Configured}", hash, saveParentId, _config.InstanceFolderId);
+                return targets;
+            }
+
+            if (response.Parent.Id == _config.InstanceFolderId)
+            {
+                // Transfer root is the instance folder itself
+                basePath = _config.DownloadDirectory;
+            }
+            else if (saveParentId.HasValue && saveParentId == _config.InstanceFolderId)
+            {
+                // Transfer root is a child of the instance folder; anchor under the instance name
+                basePath = Path.Combine(_config.DownloadDirectory, _config.InstanceName);
+            }
+            else
+            {
+                _logger.LogWarning("{Hash}: transfer parent {Parent} is not under configured instance folder {Configured}", hash, response.Parent.Id, _config.InstanceFolderId);
+                return targets;
+            }
         }
+
+        to = Path.Combine(basePath, response.Parent.Name);
 
         switch (response.Parent.FileType.ToUpperInvariant())
         {
@@ -337,7 +365,7 @@ public sealed class DownloadManager : BackgroundService
                 var childTargets = new List<DownloadTarget>();
                 foreach (var file in response.Files)
                 {
-                    var childTargetsForFile = await RecurseDownloadTargetsAsync(file.Id, hash, to, false, cancellationToken);
+                    var childTargetsForFile = await RecurseDownloadTargetsAsync(file.Id, hash, to, false, saveParentId, cancellationToken);
                     childTargets.AddRange(childTargetsForFile);
                 }
 
