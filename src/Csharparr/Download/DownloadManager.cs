@@ -342,8 +342,8 @@ public sealed class DownloadManager : BackgroundService
             }
             else if (saveParentId.HasValue && saveParentId == _config.InstanceFolderId)
             {
-                // Transfer root is a child of the instance folder; anchor under the instance name
-                basePath = Path.Combine(_config.DownloadDirectory, _config.InstanceName);
+                // Transfer root is a child of the instance folder; download directly under the configured directory
+                basePath = _config.DownloadDirectory;
             }
             else
             {

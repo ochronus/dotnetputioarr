@@ -658,8 +658,8 @@ public class DownloadManagerGetDownloadTargetsTests
         var targets = await task;
 
         targets.Should().HaveCount(2);
-        targets.Should().Contain(t => t.TargetType == TargetType.Directory && t.To == "/downloads/instance/Show S01");
-        targets.Should().Contain(t => t.TargetType == TargetType.File && t.To == "/downloads/instance/Show S01/episode1.mkv");
+        targets.Should().Contain(t => t.TargetType == TargetType.Directory && t.To == "/downloads/Show S01");
+        targets.Should().Contain(t => t.TargetType == TargetType.File && t.To == "/downloads/Show S01/episode1.mkv");
     }
 
     [Fact]
