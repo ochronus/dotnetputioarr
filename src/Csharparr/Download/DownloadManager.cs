@@ -320,10 +320,28 @@ public sealed class DownloadManager : BackgroundService
         var response = await _putioClient.ListFilesAsync(fileId, cancellationToken);
         var to = Path.Combine(basePath, response.Parent.Name);
 
+        if (topLevel && !string.Equals(response.Parent.Name, _config.InstanceName, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("{Hash}: parent folder {Parent} does not match instance {Instance}", hash, response.Parent.Name, _config.InstanceName);
+            return targets;
+        }
+
         switch (response.Parent.FileType.ToUpperInvariant())
         {
             case "FOLDER":
-                if (!DownloadHelpers.ShouldSkipDirectory(response.Parent.Name, _config.SkipDirectories))
+                if (DownloadHelpers.ShouldSkipDirectory(response.Parent.Name, _config.SkipDirectories))
+                {
+                    break;
+                }
+
+                var childTargets = new List<DownloadTarget>();
+                foreach (var file in response.Files)
+                {
+                    var childTargetsForFile = await RecurseDownloadTargetsAsync(file.Id, hash, to, false, cancellationToken);
+                    childTargets.AddRange(childTargetsForFile);
+                }
+
+                if (childTargets.Count > 0)
                 {
                     targets.Add(new DownloadTarget(
                         To: to,
@@ -333,11 +351,7 @@ public sealed class DownloadManager : BackgroundService
                         TransferHash: hash
                     ));
 
-                    foreach (var file in response.Files)
-                    {
-                        var childTargets = await RecurseDownloadTargetsAsync(file.Id, hash, to, false, cancellationToken);
-                        targets.AddRange(childTargets);
-                    }
+                    targets.AddRange(childTargets);
                 }
                 break;
 
@@ -493,7 +507,7 @@ public sealed class DownloadManager : BackgroundService
         {
             try
             {
-                var transfers = await _putioClient.ListTransfersAsync(cancellationToken);
+                var transfers = await _putioClient.ListTransfersAsync(_config.InstanceName, cancellationToken);
 
                 foreach (var pt in transfers)
                 {
@@ -541,7 +555,7 @@ public sealed class DownloadManager : BackgroundService
 
         try
         {
-            var transfers = await _putioClient.ListTransfersAsync(cancellationToken);
+            var transfers = await _putioClient.ListTransfersAsync(_config.InstanceName, cancellationToken);
 
             foreach (var pt in transfers)
             {

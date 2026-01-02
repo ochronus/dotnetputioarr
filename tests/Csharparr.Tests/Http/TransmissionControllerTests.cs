@@ -7,23 +7,17 @@ using Csharparr.Configuration;
 using Csharparr.Http;
 using Csharparr.Services;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace Csharparr.Tests.Http;
 
 public class TransmissionControllerTests
 {
-    private readonly AppConfig _testConfig = new()
-    {
-        Username = "testuser",
-        Password = "testpass",
-        DownloadDirectory = "/downloads",
-        Putio = new PutioConfig("test-api-key"),
-        Sonarr = new ArrConfig("http://sonarr", "key")
-    };
-
     private static string CreateBasicAuthHeader(string username, string password)
     {
         var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
@@ -358,12 +352,105 @@ public class TransmissionControllerTests
     }
 
     [Fact]
+    public async Task TorrentAdd_ShouldUseExistingInstanceFolderAndSource()
+    {
+        var config = new AppConfig
+        {
+            Username = "user",
+            Password = "pass",
+            InstanceName = "inst123",
+            DownloadDirectory = "/downloads",
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://sonarr", "key")
+        };
+
+        var mockPutio = new Mock<IPutioClient>();
+        var rootResponse = new ListFileResponse(
+            Files: new List<PutioFileInfo> { new PutioFileInfo(42, "inst123", FileType: "FOLDER") },
+            Parent: new PutioFileInfo(0, "root", FileType: "FOLDER")
+        );
+
+        mockPutio.Setup(x => x.ListFilesAsync(0, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(rootResponse);
+
+        mockPutio.Setup(x => x.AddTransferAsync(
+            "magnet:?xt=urn:btih:abc123",
+            "inst123",
+            42,
+            It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var controller = new TransmissionController(config, mockPutio.Object, NullLogger<TransmissionController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+        controller.ControllerContext.HttpContext.Request.Headers.Authorization = CreateBasicAuthHeader("user", "pass");
+
+        var request = new TransmissionRequest("torrent-add", new { filename = "magnet:?xt=urn:btih:abc123" });
+
+        var result = await controller.RpcPost(request, CancellationToken.None);
+
+        result.Should().BeOfType<OkObjectResult>();
+        mockPutio.Verify(x => x.ListFilesAsync(0, It.IsAny<CancellationToken>()), Times.Once);
+        mockPutio.Verify(x => x.CreateFolderAsync(It.IsAny<string>(), It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+        mockPutio.Verify(x => x.AddTransferAsync("magnet:?xt=urn:btih:abc123", "inst123", 42, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TorrentAdd_ShouldCreateInstanceFolderWhenMissing()
+    {
+        var config = new AppConfig
+        {
+            Username = "user",
+            Password = "pass",
+            InstanceName = "inst124",
+            DownloadDirectory = "/downloads",
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://sonarr", "key")
+        };
+
+        var mockPutio = new Mock<IPutioClient>();
+
+        var emptyRoot = new ListFileResponse(
+            Files: new List<PutioFileInfo>(),
+            Parent: new PutioFileInfo(0, "root", FileType: "FOLDER")
+        );
+
+        mockPutio.Setup(x => x.ListFilesAsync(0, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(emptyRoot);
+
+        mockPutio.Setup(x => x.CreateFolderAsync("inst124", 0, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PutioFileInfo(77, "inst124", FileType: "FOLDER"));
+
+        mockPutio.Setup(x => x.AddTransferAsync(
+            "magnet:?xt=urn:btih:def456",
+            "inst124",
+            77,
+            It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var controller = new TransmissionController(config, mockPutio.Object, NullLogger<TransmissionController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+        controller.ControllerContext.HttpContext.Request.Headers.Authorization = CreateBasicAuthHeader("user", "pass");
+
+        var request = new TransmissionRequest("torrent-add", new { filename = "magnet:?xt=urn:btih:def456" });
+
+        await controller.RpcPost(request, CancellationToken.None);
+        await controller.RpcPost(request, CancellationToken.None); // second call should reuse cached folder id
+
+        mockPutio.Verify(x => x.ListFilesAsync(0, It.IsAny<CancellationToken>()), Times.Once);
+        mockPutio.Verify(x => x.CreateFolderAsync("inst124", 0, It.IsAny<CancellationToken>()), Times.Once);
+        mockPutio.Verify(x => x.AddTransferAsync("magnet:?xt=urn:btih:def456", "inst124", 77, It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
     public void AppConfig_Validation_ShouldWorkForController()
     {
         var config = new AppConfig
         {
             Username = "test",
             Password = "test",
+            InstanceName = "inst123",
             DownloadDirectory = "/downloads",
             Putio = new PutioConfig("key"),
             Sonarr = new ArrConfig("http://sonarr", "key")

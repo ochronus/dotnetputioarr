@@ -289,6 +289,7 @@ public class DownloadManagerGetDownloadTargetsTests
             OrchestrationWorkers = 1,
             DownloadWorkers = 1,
             PollingInterval = 1,
+            InstanceName = "instance",
             SkipDirectories = new List<string>()
         };
     }
@@ -301,12 +302,24 @@ public class DownloadManagerGetDownloadTargetsTests
             Id: 123,
             Hash: "abc123",
             Name: "movie.mkv",
-            FileId: 456,
+            FileId: 100,
             Status: "COMPLETED");
 
         var transfer = new Transfer(_config, putioTransfer);
 
-        var fileResponse = new ListFileResponse(
+        var instanceFolder = new ListFileResponse(
+            Parent: new PutioFileInfo(
+                Id: 100,
+                Name: _config.InstanceName,
+                FileType: "FOLDER"
+            ),
+            Files: new List<PutioFileInfo>
+            {
+                new PutioFileInfo(Id: 456, Name: "movie.mkv", FileType: "VIDEO")
+            }
+        );
+
+        var videoResponse = new ListFileResponse(
             Parent: new PutioFileInfo(
                 Id: 456,
                 Name: "movie.mkv",
@@ -316,8 +329,12 @@ public class DownloadManagerGetDownloadTargetsTests
         );
 
         _mockPutioClient
+            .Setup(x => x.ListFilesAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instanceFolder);
+
+        _mockPutioClient
             .Setup(x => x.ListFilesAsync(456, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(fileResponse);
+            .ReturnsAsync(videoResponse);
 
         _mockPutioClient
             .Setup(x => x.GetFileUrlAsync(456, It.IsAny<CancellationToken>()))
@@ -338,10 +355,9 @@ public class DownloadManagerGetDownloadTargetsTests
         var targets = await task;
 
         // Assert
-        targets.Should().HaveCount(1);
-        targets[0].TargetType.Should().Be(TargetType.File);
-        targets[0].From.Should().Be("https://example.com/download/movie.mkv");
-        targets[0].To.Should().Be("/downloads/movie.mkv");
+        targets.Should().HaveCount(2);
+        targets.Should().Contain(t => t.TargetType == TargetType.Directory && t.To == "/downloads/instance");
+        targets.Should().Contain(t => t.TargetType == TargetType.File && t.From == "https://example.com/download/movie.mkv" && t.To == "/downloads/instance/movie.mkv");
     }
 
     [Fact]
@@ -352,10 +368,22 @@ public class DownloadManagerGetDownloadTargetsTests
             Id: 123,
             Hash: "abc123",
             Name: "Season 1",
-            FileId: 789,
+            FileId: 100,
             Status: "COMPLETED");
 
         var transfer = new Transfer(_config, putioTransfer);
+
+        var instanceFolder = new ListFileResponse(
+            Parent: new PutioFileInfo(
+                Id: 100,
+                Name: _config.InstanceName,
+                FileType: "FOLDER"
+            ),
+            Files: new List<PutioFileInfo>
+            {
+                new PutioFileInfo(Id: 789, Name: "Season 1", FileType: "FOLDER")
+            }
+        );
 
         var folderResponse = new ListFileResponse(
             Parent: new PutioFileInfo(
@@ -387,6 +415,10 @@ public class DownloadManagerGetDownloadTargetsTests
             ),
             Files: new List<PutioFileInfo>()
         );
+
+        _mockPutioClient
+            .Setup(x => x.ListFilesAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instanceFolder);
 
         _mockPutioClient
             .Setup(x => x.ListFilesAsync(789, It.IsAny<CancellationToken>()))
@@ -423,8 +455,9 @@ public class DownloadManagerGetDownloadTargetsTests
         var targets = await task;
 
         // Assert
-        targets.Should().HaveCount(3); // 1 directory + 2 files
-        targets.Should().Contain(t => t.TargetType == TargetType.Directory);
+        targets.Should().HaveCount(4); // instance dir + season dir + 2 files
+        targets.Should().Contain(t => t.TargetType == TargetType.Directory && t.To == "/downloads/instance");
+        targets.Should().Contain(t => t.TargetType == TargetType.Directory && t.To.EndsWith("Season 1"));
         targets.Should().Contain(t => t.TargetType == TargetType.File && t.To.Contains("episode1.mkv"));
         targets.Should().Contain(t => t.TargetType == TargetType.File && t.To.Contains("episode2.mkv"));
     }
@@ -439,10 +472,22 @@ public class DownloadManagerGetDownloadTargetsTests
             Id: 123,
             Hash: "abc123",
             Name: "Sample",
-            FileId: 789,
+            FileId: 100,
             Status: "COMPLETED");
 
         var transfer = new Transfer(_config, putioTransfer);
+
+        var instanceFolder = new ListFileResponse(
+            Parent: new PutioFileInfo(
+                Id: 100,
+                Name: _config.InstanceName,
+                FileType: "FOLDER"
+            ),
+            Files: new List<PutioFileInfo>
+            {
+                new PutioFileInfo(Id: 789, Name: "Sample", FileType: "FOLDER")
+            }
+        );
 
         var folderResponse = new ListFileResponse(
             Parent: new PutioFileInfo(
@@ -455,6 +500,10 @@ public class DownloadManagerGetDownloadTargetsTests
                 new PutioFileInfo(Id: 101, Name: "sample.mkv", FileType: "VIDEO")
             }
         );
+
+        _mockPutioClient
+            .Setup(x => x.ListFilesAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instanceFolder);
 
         _mockPutioClient
             .Setup(x => x.ListFilesAsync(789, It.IsAny<CancellationToken>()))

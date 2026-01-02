@@ -38,6 +38,7 @@ public class AppConfigTests
                 skip_directories = ["sample"]
                 orchestration_workers = 5
                 download_workers = 2
+                instance_name = "myinst1"
 
                 [putio]
                 api_key = "test-api-key"
@@ -66,6 +67,7 @@ public class AppConfigTests
             config.OrchestrationWorkers.Should().Be(5);
             config.DownloadWorkers.Should().Be(2);
             config.Putio.ApiKey.Should().Be("test-api-key");
+            config.InstanceName.Should().Be("myinst1");
             config.Sonarr.Should().NotBeNull();
             config.Sonarr!.Url.Should().Be("http://localhost:8989");
             config.Sonarr.ApiKey.Should().Be("sonarr-key");
@@ -93,6 +95,7 @@ public class AppConfigTests
         var config = new AppConfig
         {
             Username = "user",
+            InstanceName = "abc123",
             Password = "pass",
             DownloadDirectory = "/downloads",
             Putio = new PutioConfig("key"),
@@ -109,6 +112,7 @@ public class AppConfigTests
     {
         var config = new AppConfig
         {
+            InstanceName = "abc123",
             Password = "pass",
             DownloadDirectory = "/downloads",
             Putio = new PutioConfig("key"),
@@ -127,6 +131,7 @@ public class AppConfigTests
         var config = new AppConfig
         {
             Username = "user",
+            InstanceName = "abc123",
             DownloadDirectory = "/downloads",
             Putio = new PutioConfig("key"),
             Sonarr = new ArrConfig("http://localhost", "key")
@@ -144,6 +149,7 @@ public class AppConfigTests
         var config = new AppConfig
         {
             Username = "user",
+            InstanceName = "abc123",
             Password = "pass",
             Putio = new PutioConfig("key"),
             Sonarr = new ArrConfig("http://localhost", "key")
@@ -161,6 +167,7 @@ public class AppConfigTests
         var config = new AppConfig
         {
             Username = "user",
+            InstanceName = "abc123",
             Password = "pass",
             DownloadDirectory = "/downloads",
             Sonarr = new ArrConfig("http://localhost", "key")
@@ -172,12 +179,35 @@ public class AppConfigTests
             .WithMessage("*putio.api_key is required*");
     }
 
+    [Theory]
+    [InlineData("ab")]
+    [InlineData("toolongname1")] // 11 chars
+    [InlineData("invalid!")]
+    public void Validate_WithInvalidInstanceName_ShouldThrow(string instanceName)
+    {
+        var config = new AppConfig
+        {
+            Username = "user",
+            Password = "pass",
+            InstanceName = instanceName,
+            DownloadDirectory = "/downloads",
+            Putio = new PutioConfig("key"),
+            Sonarr = new ArrConfig("http://localhost", "key")
+        };
+
+        var action = () => config.Validate();
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*instance_name must be alphanumeric and 3-10 characters long*");
+    }
+
     [Fact]
     public void Validate_WithNoArrConfigured_ShouldThrow()
     {
         var config = new AppConfig
         {
             Username = "user",
+            InstanceName = "abc123",
             Password = "pass",
             DownloadDirectory = "/downloads",
             Putio = new PutioConfig("key")
@@ -253,6 +283,7 @@ public class AppConfigTests
                 username = "user"
                 password = "pass"
                 download_directory = "/downloads"
+                instance_name = "abc123"
 
                 [putio]
                 api_key = "key"

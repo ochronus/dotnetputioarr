@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Tomlyn;
 using Tomlyn.Model;
 
@@ -20,6 +21,7 @@ public sealed class AppConfig
     public List<string> SkipDirectories { get; set; } = ["sample", "extras"];
     public int Uid { get; set; } = 1000;
     public string Username { get; set; } = string.Empty;
+    public string InstanceName { get; set; } = string.Empty;
     public PutioConfig Putio { get; set; } = new();
     public ArrConfig? Sonarr { get; set; }
     public ArrConfig? Radarr { get; set; }
@@ -81,6 +83,9 @@ public sealed class AppConfig
 
         if (tomlTable.TryGetValue("username", out var username))
             config.Username = username?.ToString() ?? config.Username;
+
+        if (tomlTable.TryGetValue("instance_name", out var instanceName))
+            config.InstanceName = instanceName?.ToString() ?? config.InstanceName;
 
         if (tomlTable.TryGetValue("skip_directories", out var skipDirs) && skipDirs is TomlArray skipArray)
         {
@@ -144,6 +149,11 @@ public sealed class AppConfig
 
         if (string.IsNullOrWhiteSpace(Username))
             errors.Add("username is required");
+
+        if (string.IsNullOrWhiteSpace(InstanceName))
+            errors.Add("instance_name is required");
+        else if (!Regex.IsMatch(InstanceName, "^[A-Za-z0-9]{3,10}$"))
+            errors.Add("instance_name must be alphanumeric and 3-10 characters long");
 
         if (string.IsNullOrWhiteSpace(Password))
             errors.Add("password is required");

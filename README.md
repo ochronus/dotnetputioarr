@@ -94,6 +94,7 @@ csharparr version
 2. Follow the prompts to authenticate with put.io
 3. Edit the generated config file to set:
    - `username` and `password` for the proxy
+  - `instance_name` to tag transfers and the folder they live in on put.io (3-10 alphanumeric chars)
    - `download_directory` for where files should be downloaded
    - Sonarr/Radarr/Whisparr connection details
 4. Run `csharparr run` to start the proxy
@@ -115,6 +116,10 @@ TOML is used as the configuration format:
 # Required. Username and password that sonarr/radarr/whisparr use to connect to the proxy
 username = "myusername"
 password = "mypassword"
+
+# Required. Alphanumeric (3-10 chars). Transfers are tagged with this value and saved under a folder of
+# the same name on put.io.
+instance_name = "myinstance"
 
 # Required. Directory where the proxy will download files to. This directory has to be readable by
 # sonarr/radarr/whisparr in order to import downloads

@@ -166,6 +166,9 @@ public static class CommandHandler
             username = "myusername"
             password = "mypassword"
 
+            # Required. Alphanumeric (3-10 chars) instance name. Transfers are scoped to this name and files go into this folder.
+            instance_name = "myinstance"
+
             # Required. Directory where the proxy will download files to. This directory has to be readable by
             # sonarr/radarr in order to import downloads
             download_directory = "/path/to/downloads"

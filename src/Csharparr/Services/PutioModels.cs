@@ -39,6 +39,7 @@ public sealed record PutioTransfer(
     string? StartedAt = null,
     string? ErrorMessage = null,
     long? FileId = null,
+    string? Source = null,
     bool UserfileExists = false
 )
 {
@@ -55,6 +56,8 @@ public sealed record ListFileResponse(
     List<PutioFileInfo> Files,
     PutioFileInfo Parent
 );
+
+public sealed record CreateFolderResponse(PutioFileInfo File);
 
 /// <summary>
 /// Represents a Put.io file or directory

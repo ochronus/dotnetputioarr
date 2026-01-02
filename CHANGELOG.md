@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-01-02
+
+### Added
+
+- Instance-scoped transfers: required `instance_name` (alphanumeric, 3-10 chars) to tag transfers and scope listings
+- Automatic instance folder creation on put.io and download targeting into that folder
+
+### Changed
+
+- Configuration validation enforces `instance_name` presence and format
+- Transmission torrent-add now sets transfer source to the instance name and reuses/creates the instance folder
+- Download target generation ignores skipped directories unless children remain, preventing empty folder downloads
+
 ## [0.2.2] - 2025-12-13
 
 ### Added
@@ -14,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 4 new tests for `DownloadManager` target generation logic
   - 4 new tests for `DownloadManager` seen tracking with thread-safety verification
   - Total test count increased from 198 to 210 tests
-  
+
 ### Improved
 
 - **Error Logging for Arr Service Failures**: Improved exception handling and logging when Arr services are unavailable
@@ -168,3 +181,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.1.2]: https://github.com/ochronus/csharparr/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ochronus/csharparr/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ochronus/csharparr/releases/tag/v0.1.0
+[0.3.0]: https://github.com/ochronus/csharparr/releases/tag/v0.3.0

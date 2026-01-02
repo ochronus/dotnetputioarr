@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -52,13 +54,19 @@ public sealed class PutioClient : IPutioClient
     }
 
     /// <summary>
-    /// Lists all transfers
+    /// Lists all transfers, optionally filtering by source
     /// </summary>
-    public async Task<IReadOnlyList<PutioTransfer>> ListTransfersAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PutioTransfer>> ListTransfersAsync(string? source = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Listing transfers from put.io");
+        _logger.LogDebug("Listing transfers from put.io{Source}", source is null ? string.Empty : $" for source {source}");
 
-        var response = await _httpClient.GetAsync($"{BaseUrl}/transfers/list", cancellationToken);
+        var url = $"{BaseUrl}/transfers/list";
+        if (!string.IsNullOrEmpty(source))
+        {
+            url += $"?source={Uri.EscapeDataString(source)}";
+        }
+
+        var response = await _httpClient.GetAsync(url, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -69,7 +77,14 @@ public sealed class PutioClient : IPutioClient
         var result = await response.Content.ReadFromJsonAsync<ListTransferResponse>(JsonOptions, cancellationToken)
             ?? throw new PutioException("Failed to deserialize transfer list response");
 
-        return result.Transfers;
+        if (string.IsNullOrEmpty(source))
+        {
+            return result.Transfers;
+        }
+
+        return result.Transfers
+            .Where(t => string.Equals(t.Source, source, StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     /// <summary>
@@ -136,16 +151,49 @@ public sealed class PutioClient : IPutioClient
     }
 
     /// <summary>
-    /// Adds a new transfer from a URL or magnet link
+    /// Creates a folder under the specified parent
     /// </summary>
-    public async Task AddTransferAsync(string url, CancellationToken cancellationToken = default)
+    public async Task<PutioFileInfo> CreateFolderAsync(string name, long parentId, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Adding transfer to put.io: {Url}", url);
+        _logger.LogDebug("Creating folder {Name} under parent {ParentId}", name, parentId);
 
         using var content = new MultipartFormDataContent
         {
-            { new StringContent(url), "url" }
+            { new StringContent(name), "name" },
+            { new StringContent(parentId.ToString()), "parent_id" }
         };
+
+        var response = await _httpClient.PostAsync($"{BaseUrl}/files/create-folder", content, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
+            throw new PutioException($"Error creating folder {name}: {response.StatusCode}{errorBody}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<CreateFolderResponse>(JsonOptions, cancellationToken)
+            ?? throw new PutioException("Failed to deserialize create folder response");
+
+        return result.File;
+    }
+
+    /// <summary>
+    /// Adds a new transfer from a URL or magnet link
+    /// </summary>
+    public async Task AddTransferAsync(string url, string source, long? parentId = null, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Adding transfer to put.io: {Url} with source {Source}", url, source);
+
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent(url), "url" },
+            { new StringContent(source), "source" }
+        };
+
+        if (parentId.HasValue)
+        {
+            content.Add(new StringContent(parentId.Value.ToString()), "save_parent_id");
+        }
 
         var response = await _httpClient.PostAsync($"{BaseUrl}/transfers/add", content, cancellationToken);
 
@@ -159,15 +207,21 @@ public sealed class PutioClient : IPutioClient
     /// <summary>
     /// Uploads a torrent file
     /// </summary>
-    public async Task UploadFileAsync(byte[] data, CancellationToken cancellationToken = default)
+    public async Task UploadFileAsync(byte[] data, string source, long? parentId = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Uploading torrent file to put.io ({Size} bytes)", data.Length);
+        _logger.LogDebug("Uploading torrent file to put.io ({Size} bytes) with source {Source}", data.Length, source);
 
         using var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(data);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-bittorrent");
         content.Add(fileContent, "file", "foo.torrent");
         content.Add(new StringContent("foo.torrent"), "filename");
+        content.Add(new StringContent(source), "source");
+
+        if (parentId.HasValue)
+        {
+            content.Add(new StringContent(parentId.Value.ToString()), "parent_id");
+        }
 
         var response = await _httpClient.PostAsync($"{UploadUrl}/files/upload", content, cancellationToken);
 

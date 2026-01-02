@@ -389,3 +389,5 @@ FodyWeavers.xsd
 # Application specific
 config.toml
 *.bak
+
+go-putio

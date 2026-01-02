@@ -155,6 +155,30 @@ public class PutioClientTests
     }
 
     [Fact]
+    public void PutioTransfer_Deserialization_WithSource()
+    {
+        var json = """
+            {
+                "id": 5,
+                "status": "COMPLETED",
+                "file_id": 10,
+                "source": "inst123"
+            }
+            """;
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            PropertyNameCaseInsensitive = true
+        };
+
+        var transfer = JsonSerializer.Deserialize<PutioTransfer>(json, options);
+
+        transfer.Should().NotBeNull();
+        transfer!.Source.Should().Be("inst123");
+    }
+
+    [Fact]
     public void AccountInfo_Deserialization()
     {
         var json = """
