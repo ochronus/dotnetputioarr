@@ -384,11 +384,12 @@ public sealed class DownloadManager : BackgroundService
                 break;
 
             case "VIDEO":
+            case "AUDIO":
             case "TEXT":
             case "FILE":
-                if (!IsSubtitle(response.Parent.Name) && !string.Equals(response.Parent.FileType, "VIDEO", StringComparison.OrdinalIgnoreCase))
+                if (!IsMediaFile(response.Parent.Name) && !string.Equals(response.Parent.FileType, "VIDEO", StringComparison.OrdinalIgnoreCase) && !string.Equals(response.Parent.FileType, "AUDIO", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Only treat TEXT/FILE as targets when they look like subtitle files
+                    // Only treat TEXT/FILE as targets when they look like subtitle or audio files
                     break;
                 }
 
@@ -410,6 +411,17 @@ public sealed class DownloadManager : BackgroundService
     {
         var ext = Path.GetExtension(name).ToLowerInvariant();
         return ext is ".srt" or ".sub" or ".vtt" or ".ssa" or ".ass";
+    }
+
+    private static bool IsAudioFile(string name)
+    {
+        var ext = Path.GetExtension(name).ToLowerInvariant();
+        return ext is ".flac" or ".cue" or ".m3u8";
+    }
+
+    private static bool IsMediaFile(string name)
+    {
+        return IsSubtitle(name) || IsAudioFile(name);
     }
 
     private async Task WatchForImportAsync(Transfer transfer, CancellationToken cancellationToken)
