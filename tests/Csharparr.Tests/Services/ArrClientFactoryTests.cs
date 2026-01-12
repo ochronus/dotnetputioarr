@@ -58,8 +58,8 @@ public class ArrClientFactoryTests
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Failed to check import status")),
-                It.IsAny<Exception>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Cannot connect")),
+                null, // HttpRequestException now logged without stack trace
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
     }
@@ -145,7 +145,7 @@ public class ArrClientFactoryTests
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Failed to check import status")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Unexpected error checking import status")),
                 It.IsAny<Exception>(), // Should include exception for unexpected errors
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

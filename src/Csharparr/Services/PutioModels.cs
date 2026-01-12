@@ -41,7 +41,11 @@ public sealed record PutioTransfer(
     long? FileId = null,
     long? SaveParentId = null,
     string? Source = null,
-    bool UserfileExists = false
+    bool UserfileExists = false,
+    long? DownSpeed = null,
+    long? UpSpeed = null,
+    long? Uploaded = null,
+    long? SecondsSeeding = null
 )
 {
     /// <summary>

@@ -51,17 +51,24 @@ public class ArrClientFactory : IArrClientFactory
                     service.Name, service.Url);
                 continue;
             }
-            catch (HttpRequestException ex) when (ex.InnerException is SocketException)
+            catch (HttpRequestException ex)
             {
-                // Connection refused or network error - log concisely without full stack trace
+                // Network/HTTP error - log concisely without full stack trace
                 _logger.LogWarning("Cannot connect to {ServiceName} at {ServiceUrl}: {ErrorMessage}",
-                    service.Name, service.Url, ex.InnerException.Message);
+                    service.Name, service.Url, ex.Message);
+                continue;
+            }
+            catch (ArrClientException ex)
+            {
+                // Arr API error - log concisely
+                _logger.LogWarning("Failed to check import status from {ServiceName}: {ErrorMessage}",
+                    service.Name, ex.Message);
                 continue;
             }
             catch (Exception ex)
             {
                 // Unexpected error - log with full details
-                _logger.LogWarning(ex, "Failed to check import status from {ServiceName} at {ServiceUrl}",
+                _logger.LogWarning(ex, "Unexpected error checking import status from {ServiceName} at {ServiceUrl}",
                     service.Name, service.Url);
                 continue;
             }

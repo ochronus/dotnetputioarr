@@ -37,9 +37,14 @@ public class HealthController : ControllerBase
             await _putioClient.GetAccountInfoAsync();
             _logger.LogInformation("Put.io API connectivity is OK");
         }
-        catch (Exception ex)
+        catch (PutioException ex)
         {
-            _logger.LogError(ex, "Put.io API connectivity is down");
+            _logger.LogWarning("Put.io API connectivity check failed: {Message}", ex.Message);
+            return StatusCode(503, "Put.io API connectivity is down");
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning("Put.io API connectivity check failed: {Message}", ex.Message);
             return StatusCode(503, "Put.io API connectivity is down");
         }
 
@@ -51,9 +56,14 @@ public class HealthController : ControllerBase
             System.IO.File.Delete(testFilePath);
             _logger.LogInformation("Download directory is writable");
         }
-        catch (Exception ex)
+        catch (IOException ex)
         {
-            _logger.LogError(ex, "Download directory is not writable");
+            _logger.LogWarning("Download directory is not writable: {Message}", ex.Message);
+            return StatusCode(503, "Download directory is not writable");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Download directory is not writable: {Message}", ex.Message);
             return StatusCode(503, "Download directory is not writable");
         }
 
@@ -69,9 +79,9 @@ public class HealthController : ControllerBase
                 response.EnsureSuccessStatusCode();
                 _logger.LogInformation("{ServiceName} connectivity is OK", service.Name);
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex)
             {
-                _logger.LogError(ex, "{ServiceName} connectivity is down", service.Name);
+                _logger.LogWarning("{ServiceName} connectivity check failed: {Message}", service.Name, ex.Message);
                 return StatusCode(503, $"{service.Name} connectivity is down");
             }
         }

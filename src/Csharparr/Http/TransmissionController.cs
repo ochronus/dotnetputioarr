@@ -71,6 +71,7 @@ public class TransmissionController : ControllerBase
             object? arguments = request.Method switch
             {
                 "session-get" => TransmissionConfig.Default(_config.DownloadDirectory),
+                "session-stats" => await HandleSessionStatsAsync(cancellationToken),
                 "torrent-get" => await HandleTorrentGetAsync(cancellationToken),
                 "torrent-set" => null,
                 "queue-move-top" => null,
@@ -83,12 +84,23 @@ public class TransmissionController : ControllerBase
         }
         catch (InvalidOperationException ex) when (ex.Message.StartsWith("Unknown method:"))
         {
-            _logger.LogWarning(ex, "Unknown method: {Method}", request.Method);
+            _logger.LogWarning("Unknown RPC method: {Method}", request.Method);
             return BadRequest(new { error = "unknown method" });
+        }
+        catch (PutioNotFoundException ex)
+        {
+            // Resource was deleted externally - not an error worth logging with stack trace
+            _logger.LogInformation("Resource not found during RPC {Method}: {Message}", request.Method, ex.Message);
+            return Ok(new TransmissionResponse("success", null));
+        }
+        catch (PutioException ex)
+        {
+            _logger.LogWarning("put.io error during RPC {Method}: {Message}", request.Method, ex.Message);
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling RPC request: {Method}", request.Method);
+            _logger.LogError(ex, "Unexpected error handling RPC request: {Method}", request.Method);
             return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
         }
     }
@@ -102,6 +114,58 @@ public class TransmissionController : ControllerBase
             .ToList();
 
         return new TorrentGetResponse(torrents);
+    }
+
+    private async Task<SessionStatsResponse> HandleSessionStatsAsync(CancellationToken cancellationToken)
+    {
+        var transfers = await _putioClient.ListTransfersAsync(parentId: _config.InstanceFolderId, cancellationToken: cancellationToken);
+
+        // Aggregate statistics from all transfers
+        var activeTorrentCount = 0;
+        var pausedTorrentCount = 0;
+        long downloadSpeed = 0;
+        long uploadSpeed = 0;
+        long totalDownloaded = 0;
+        long totalUploaded = 0;
+        long totalSecondsSeeding = 0;
+
+        foreach (var transfer in transfers)
+        {
+            var status = transfer.Status.ToUpperInvariant();
+
+            if (status is "DOWNLOADING" or "SEEDING")
+            {
+                activeTorrentCount++;
+                downloadSpeed += transfer.DownSpeed ?? 0;
+                uploadSpeed += transfer.UpSpeed ?? 0;
+            }
+            else if (status is "STOPPED")
+            {
+                pausedTorrentCount++;
+            }
+
+            totalDownloaded += transfer.Downloaded ?? 0;
+            totalUploaded += transfer.Uploaded ?? 0;
+            totalSecondsSeeding += transfer.SecondsSeeding ?? 0;
+        }
+
+        var cumulativeStats = new SessionStatsCumulative(
+            UploadedBytes: totalUploaded,
+            DownloadedBytes: totalDownloaded,
+            FilesAdded: transfers.Count,
+            SessionCount: 1,
+            SecondsActive: totalSecondsSeeding
+        );
+
+        return new SessionStatsResponse(
+            ActiveTorrentCount: activeTorrentCount,
+            DownloadSpeed: downloadSpeed,
+            UploadSpeed: uploadSpeed,
+            PausedTorrentCount: pausedTorrentCount,
+            TorrentCount: transfers.Count,
+            CumulativeStats: cumulativeStats,
+            CurrentStats: cumulativeStats
+        );
     }
 
     private async Task<object?> HandleTorrentAddAsync(TransmissionRequest request, CancellationToken cancellationToken)
@@ -192,9 +256,14 @@ public class TransmissionController : ControllerBase
                 {
                     await _putioClient.RemoveTransferAsync(transfer.Id, cancellationToken);
                 }
-                catch (Exception ex)
+                catch (PutioNotFoundException)
                 {
-                    _logger.LogError(ex, "Failed to remove transfer {TransferId}", transfer.Id);
+                    // Already removed - not an error
+                    _logger.LogDebug("Transfer {TransferId} already removed", transfer.Id);
+                }
+                catch (PutioException ex)
+                {
+                    _logger.LogWarning("Failed to remove transfer {TransferId}: {Message}", transfer.Id, ex.Message);
                     continue;
                 }
 
@@ -204,9 +273,14 @@ public class TransmissionController : ControllerBase
                     {
                         await _putioClient.DeleteFileAsync(transfer.FileId.Value, cancellationToken);
                     }
-                    catch (Exception ex)
+                    catch (PutioNotFoundException)
                     {
-                        _logger.LogError(ex, "Failed to delete file {FileId}", transfer.FileId);
+                        // Already deleted - not an error
+                        _logger.LogDebug("File {FileId} already deleted", transfer.FileId);
+                    }
+                    catch (PutioException ex)
+                    {
+                        _logger.LogWarning("Failed to delete file {FileId}: {Message}", transfer.FileId, ex.Message);
                     }
                 }
             }

@@ -214,3 +214,49 @@ public sealed record TorrentGetResponse(
     [property: JsonPropertyName("torrents")]
     List<TransmissionTorrent> Torrents
 );
+
+/// <summary>
+/// Response for session-stats method
+/// </summary>
+public sealed record SessionStatsResponse(
+    [property: JsonPropertyName("activeTorrentCount")]
+    int ActiveTorrentCount,
+
+    [property: JsonPropertyName("downloadSpeed")]
+    long DownloadSpeed,
+
+    [property: JsonPropertyName("uploadSpeed")]
+    long UploadSpeed,
+
+    [property: JsonPropertyName("pausedTorrentCount")]
+    int PausedTorrentCount,
+
+    [property: JsonPropertyName("torrentCount")]
+    int TorrentCount,
+
+    [property: JsonPropertyName("cumulative-stats")]
+    SessionStatsCumulative CumulativeStats,
+
+    [property: JsonPropertyName("current-stats")]
+    SessionStatsCumulative CurrentStats
+);
+
+/// <summary>
+/// Cumulative/current statistics for session-stats response
+/// </summary>
+public sealed record SessionStatsCumulative(
+    [property: JsonPropertyName("uploadedBytes")]
+    long UploadedBytes,
+
+    [property: JsonPropertyName("downloadedBytes")]
+    long DownloadedBytes,
+
+    [property: JsonPropertyName("filesAdded")]
+    int FilesAdded,
+
+    [property: JsonPropertyName("sessionCount")]
+    int SessionCount,
+
+    [property: JsonPropertyName("secondsActive")]
+    long SecondsActive
+);

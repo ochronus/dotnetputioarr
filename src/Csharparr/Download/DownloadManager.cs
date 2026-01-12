@@ -95,9 +95,17 @@ public sealed class DownloadManager : BackgroundService
                         break;
                 }
             }
+            catch (PutioNotFoundException)
+            {
+                _logger.LogInformation("{Transfer}: no longer exists on put.io (deleted externally)", message.Transfer);
+            }
+            catch (PutioException ex)
+            {
+                _logger.LogWarning("Error processing {Transfer}: {Message}", message.Transfer, ex.Message);
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing transfer message for {Transfer}", message.Transfer);
+                _logger.LogError(ex, "Unexpected error processing transfer message for {Transfer}", message.Transfer);
             }
         }
     }
@@ -112,6 +120,16 @@ public sealed class DownloadManager : BackgroundService
         {
             // Expected during shutdown, don't log as error
             _logger.LogDebug("{Transfer}: import watch cancelled", transfer);
+        }
+        catch (PutioNotFoundException)
+        {
+            // Transfer/file was deleted externally on put.io - this is expected
+            _logger.LogInformation("{Transfer}: no longer exists on put.io (likely deleted externally)", transfer);
+        }
+        catch (PutioServerException ex)
+        {
+            // Server error - transient, will be retried by Polly
+            _logger.LogWarning("{Transfer}: put.io server error ({Message}), will retry", transfer, ex.Message);
         }
         catch (Exception ex)
         {
@@ -129,6 +147,16 @@ public sealed class DownloadManager : BackgroundService
         {
             // Expected during shutdown, don't log as error
             _logger.LogDebug("{Transfer}: seeding watch cancelled", transfer);
+        }
+        catch (PutioNotFoundException)
+        {
+            // Transfer/file was deleted externally on put.io - this is expected, nothing to clean up
+            _logger.LogInformation("{Transfer}: no longer exists on put.io (likely deleted externally)", transfer);
+        }
+        catch (PutioServerException ex)
+        {
+            // Server error - transient, will be retried by Polly
+            _logger.LogWarning("{Transfer}: put.io server error ({Message}), will retry", transfer, ex.Message);
         }
         catch (Exception ex)
         {
@@ -158,9 +186,31 @@ public sealed class DownloadManager : BackgroundService
                 var status = await DownloadTargetAsync(message.Target, cancellationToken);
                 message.CompletionSource.SetResult(status);
             }
+            catch (HttpRequestException ex)
+            {
+                // Network/HTTP errors during download - no stack trace needed
+                _logger.LogWarning("Download failed for {Target}: {Message}", message.Target, ex.Message);
+                message.CompletionSource.SetResult(DownloadStatus.Failed);
+            }
+            catch (PutioNotFoundException)
+            {
+                _logger.LogInformation("{Target}: file no longer exists on put.io", message.Target);
+                message.CompletionSource.SetResult(DownloadStatus.Failed);
+            }
+            catch (PutioException ex)
+            {
+                _logger.LogWarning("Download failed for {Target}: {Message}", message.Target, ex.Message);
+                message.CompletionSource.SetResult(DownloadStatus.Failed);
+            }
+            catch (IOException ex)
+            {
+                // File system errors - no stack trace needed
+                _logger.LogWarning("Download failed for {Target}: {Message}", message.Target, ex.Message);
+                message.CompletionSource.SetResult(DownloadStatus.Failed);
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error downloading target {Target}", message.Target);
+                _logger.LogError(ex, "Unexpected error downloading target {Target}", message.Target);
                 message.CompletionSource.SetResult(DownloadStatus.Failed);
             }
         }
@@ -216,9 +266,14 @@ public sealed class DownloadManager : BackgroundService
                         Directory.CreateDirectory(target.To);
                         _logger.LogInformation("{Target}: directory created", target);
                     }
-                    catch (Exception ex)
+                    catch (IOException ex)
                     {
-                        _logger.LogError(ex, "{Target}: failed to create directory", target);
+                        _logger.LogWarning("{Target}: failed to create directory ({Message})", target, ex.Message);
+                        return DownloadStatus.Failed;
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        _logger.LogWarning("{Target}: failed to create directory ({Message})", target, ex.Message);
                         return DownloadStatus.Failed;
                     }
                 }
@@ -233,7 +288,7 @@ public sealed class DownloadManager : BackgroundService
 
                 if (string.IsNullOrEmpty(target.From))
                 {
-                    _logger.LogError("{Target}: no URL found", target);
+                    _logger.LogWarning("{Target}: no URL found", target);
                     return DownloadStatus.Failed;
                 }
 
@@ -245,9 +300,14 @@ public sealed class DownloadManager : BackgroundService
                     _logger.LogInformation("{Target}: download succeeded", target);
                     return DownloadStatus.Success;
                 }
-                catch (Exception ex)
+                catch (HttpRequestException ex)
                 {
-                    _logger.LogError(ex, "{Target}: download failed", target);
+                    _logger.LogWarning("{Target}: download failed ({Message})", target, ex.Message);
+                    return DownloadStatus.Failed;
+                }
+                catch (IOException ex)
+                {
+                    _logger.LogWarning("{Target}: download failed ({Message})", target, ex.Message);
                     return DownloadStatus.Failed;
                 }
 
@@ -513,39 +573,66 @@ public sealed class DownloadManager : BackgroundService
                 if (resp.Status != "SEEDING")
                 {
                     _logger.LogInformation("{Transfer}: stopped seeding", transfer);
-
-                    // Remove transfer from put.io
-                    try
-                    {
-                        await _putioClient.RemoveTransferAsync(transfer.TransferId, cancellationToken);
-                        _logger.LogInformation("{Transfer}: removed from put.io", transfer);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "{Transfer}: failed to remove transfer", transfer);
-                    }
-
-                    // Delete remote files
-                    if (transfer.FileId.HasValue)
-                    {
-                        try
-                        {
-                            await _putioClient.DeleteFileAsync(transfer.FileId.Value, cancellationToken);
-                            _logger.LogInformation("{Transfer}: deleted remote files", transfer);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "{Transfer}: unable to delete remote files", transfer);
-                        }
-                    }
-
+                    await CleanupTransferAsync(transfer, cancellationToken);
                     _logger.LogInformation("{Transfer}: done seeding", transfer);
                     return;
                 }
             }
-            catch (Exception ex)
+            catch (PutioNotFoundException)
             {
-                _logger.LogWarning(ex, "{Transfer}: failed to get transfer status", transfer);
+                // Transfer was deleted externally - nothing more to do
+                _logger.LogInformation("{Transfer}: no longer exists on put.io, cleanup complete", transfer);
+                return;
+            }
+            catch (PutioServerException ex)
+            {
+                // Transient server error - will retry on next tick
+                _logger.LogDebug("{Transfer}: put.io server error ({Message}), will retry", transfer, ex.Message);
+            }
+            catch (PutioException ex)
+            {
+                // Other put.io error - log briefly and retry
+                _logger.LogWarning("{Transfer}: failed to get transfer status ({Message})", transfer, ex.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes the transfer from put.io and deletes associated files.
+    /// Handles "not found" errors gracefully (resource already deleted).
+    /// </summary>
+    private async Task CleanupTransferAsync(Transfer transfer, CancellationToken cancellationToken)
+    {
+        // Remove transfer from put.io
+        try
+        {
+            await _putioClient.RemoveTransferAsync(transfer.TransferId, cancellationToken);
+            _logger.LogInformation("{Transfer}: removed from put.io", transfer);
+        }
+        catch (PutioNotFoundException)
+        {
+            _logger.LogDebug("{Transfer}: transfer already removed from put.io", transfer);
+        }
+        catch (PutioException ex)
+        {
+            _logger.LogWarning("{Transfer}: failed to remove transfer ({Message})", transfer, ex.Message);
+        }
+
+        // Delete remote files
+        if (transfer.FileId.HasValue)
+        {
+            try
+            {
+                await _putioClient.DeleteFileAsync(transfer.FileId.Value, cancellationToken);
+                _logger.LogInformation("{Transfer}: deleted remote files", transfer);
+            }
+            catch (PutioNotFoundException)
+            {
+                _logger.LogDebug("{Transfer}: remote files already deleted", transfer);
+            }
+            catch (PutioException ex)
+            {
+                _logger.LogWarning("{Transfer}: unable to delete remote files ({Message})", transfer, ex.Message);
             }
         }
     }
@@ -596,9 +683,18 @@ public sealed class DownloadManager : BackgroundService
                     lastLogTime = DateTime.UtcNow;
                 }
             }
+            catch (PutioServerException ex)
+            {
+                // Transient server error - retry silently
+                _logger.LogDebug("put.io server error ({Message}), will retry", ex.Message);
+            }
+            catch (PutioException ex)
+            {
+                _logger.LogWarning("List put.io transfers failed ({Message}), will retry", ex.Message);
+            }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "List put.io transfers failed. Retrying...");
+                _logger.LogWarning(ex, "Unexpected error listing transfers, will retry");
             }
         }
     }
@@ -638,16 +734,28 @@ public sealed class DownloadManager : BackgroundService
                             _logger.LogInformation("{Transfer}: not imported yet", transfer);
                         }
                     }
+                    catch (PutioNotFoundException)
+                    {
+                        _logger.LogInformation("{Name}: no longer exists on put.io", name);
+                    }
+                    catch (PutioException ex)
+                    {
+                        _logger.LogWarning("Could not get target for {Name}: {Message}", name, ex.Message);
+                    }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Could not get target for {Name}", name);
+                        _logger.LogWarning(ex, "Unexpected error getting target for {Name}", name);
                     }
                 }
             }
         }
+        catch (PutioException ex)
+        {
+            _logger.LogError("Failed to list transfers: {Message}", ex.Message);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to list transfers");
+            _logger.LogError(ex, "Unexpected error listing transfers");
         }
 
         _logger.LogInformation("Done checking for unfinished transfers. Starting to monitor transfers.");

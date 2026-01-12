@@ -43,8 +43,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error getting put.io account info: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, "Error getting put.io account info", cancellationToken);
         }
 
         var result = await response.Content.ReadFromJsonAsync<AccountInfoResponse>(JsonOptions, cancellationToken)
@@ -68,8 +67,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error getting put.io transfers: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, "Error getting put.io transfers", cancellationToken);
         }
 
         var result = await response.Content.ReadFromJsonAsync<ListTransferResponse>(JsonOptions, cancellationToken)
@@ -101,8 +99,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error getting put.io transfer id:{transferId}: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, $"Error getting put.io transfer id:{transferId}", cancellationToken);
         }
 
         var result = await response.Content.ReadFromJsonAsync<GetTransferResponse>(JsonOptions, cancellationToken)
@@ -127,8 +124,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error removing put.io transfer id:{transferId}: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, $"Error removing put.io transfer id:{transferId}", cancellationToken);
         }
     }
 
@@ -148,8 +144,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error removing put.io file/directory id:{fileId}: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, $"Error removing put.io file/directory id:{fileId}", cancellationToken);
         }
     }
 
@@ -170,8 +165,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error creating folder {name}: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, $"Error creating folder {name}", cancellationToken);
         }
 
         var result = await response.Content.ReadFromJsonAsync<CreateFolderResponse>(JsonOptions, cancellationToken)
@@ -202,8 +196,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error adding url: {url} to put.io: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, $"Error adding url to put.io", cancellationToken);
         }
     }
 
@@ -230,8 +223,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error uploading file to put.io: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, "Error uploading file to put.io", cancellationToken);
         }
     }
 
@@ -246,8 +238,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error listing put.io file/directory id:{fileId}: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, $"Error listing put.io file/directory id:{fileId}", cancellationToken);
         }
 
         return await response.Content.ReadFromJsonAsync<ListFileResponse>(JsonOptions, cancellationToken)
@@ -265,8 +256,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error getting url for put.io file id:{fileId}: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, $"Error getting url for put.io file id:{fileId}", cancellationToken);
         }
 
         var result = await response.Content.ReadFromJsonAsync<UrlResponse>(JsonOptions, cancellationToken)
@@ -284,8 +274,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error getting put.io OOB: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, "Error getting put.io OOB", cancellationToken);
         }
 
         var result = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>(cancellationToken)
@@ -308,8 +297,7 @@ public sealed class PutioClient : IPutioClient
 
         if (!response.IsSuccessStatusCode)
         {
-            var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
-            throw new PutioException($"Error checking put.io OOB {oobCode}: {response.StatusCode}{errorBody}");
+            throw await CreateExceptionAsync(response, $"Error checking put.io OOB {oobCode}", cancellationToken);
         }
 
         var result = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>(cancellationToken)
@@ -346,5 +334,34 @@ public sealed class PutioClient : IPutioClient
             // Ignore errors reading the body
         }
         return string.Empty;
+    }
+
+    /// <summary>
+    /// Creates the appropriate exception type based on HTTP status code
+    /// </summary>
+    private static async Task<PutioException> CreateExceptionAsync(
+        HttpResponseMessage response,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        var errorBody = await TryReadErrorBodyAsync(response, cancellationToken);
+        var message = $"{operation}: {response.StatusCode}{errorBody}";
+
+        return (int)response.StatusCode switch
+        {
+            404 => new PutioNotFoundException(message),
+            429 => new PutioRateLimitException(message, ParseRetryAfter(response)),
+            >= 500 => new PutioServerException(message, response.StatusCode),
+            _ => new PutioException(message, response.StatusCode)
+        };
+    }
+
+    private static TimeSpan? ParseRetryAfter(HttpResponseMessage response)
+    {
+        if (response.Headers.RetryAfter?.Delta is { } delta)
+            return delta;
+        if (response.Headers.RetryAfter?.Date is { } date)
+            return date - DateTimeOffset.UtcNow;
+        return null;
     }
 }

@@ -74,7 +74,8 @@ public class HealthControllerTests
     {
         // Arrange
         var controller = CreateController();
-        _putioClientMock.Setup(x => x.GetAccountInfoAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new System.Exception());
+        _putioClientMock.Setup(x => x.GetAccountInfoAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new PutioException("API error"));
 
         // Act
         var result = await controller.HealthCheck();
