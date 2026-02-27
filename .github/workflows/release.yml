@@ -101,7 +101,7 @@ jobs:
         run: mv ./publish/csharparr ./publish/csharparr-${{ matrix.target }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: csharparr-${{ matrix.target }}
           path: ./publish/csharparr-${{ matrix.target }}
